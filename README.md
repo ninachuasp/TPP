@@ -1,6 +1,7 @@
-# Trip Pin Planner 🗾
+# Detour 🧭
 
-A collaborative road-trip planner — built and test-driven with a **Sapporo road trip**.
+**Plan the drive together.** A link-first, real-time group road-trip planner — built and
+test-driven with a **Sapporo road trip**. Investor memo: `pitch.html`.
 
 Open `index.html` in any browser (no build step, no server needed). It ships pre-seeded
 with a classic Hokkaido road-trip itinerary that you can edit, reorder, or wipe.
@@ -50,10 +51,19 @@ Access model: the trip's unguessable UUID *is* the invite — anyone holding the
 can read and edit that trip (no accounts). The anon key in the page is a publishable
 key and the Supabase project's schema contains only these trip tables.
 
+## Product features (beyond the basics)
+
+- **🔥 Voting** on stops and **✓ visited** tracking (pins turn gold) — currently
+  per-device via localStorage; syncing them needs `votes jsonb` / `visited boolean`
+  columns on `trip_stops` plus a `trip_travelers` table (one small migration).
+- **Drive-time budgets** per day — straight-line distance × road factor at rural
+  average speed; badges turn amber past 3 h, red past 4.5 h.
+- **Crew-aware days** — presence dots derived from day titles (crew A / crew B / all 4).
+
 ## Roadmap ideas
 
-- Crew timeline: travelers with date ranges, so each day shows who's actually there
-- Pin voting (🔥/😐) to settle wishlist debates
-- Driving-time meter per day via OSRM's free routing API
+- Sync votes/visited/travelers (the migration above)
+- Real routing times via OSRM's free API
+- Google Takeout import for whole saved-places lists
 - oEmbed previews for Instagram/TikTok links (thumbnail cards instead of chips)
-- Trip-day companion mode: today's stops, one-tap navigate, ✅ visited pins
+- Booking-affiliate integration from inside the itinerary

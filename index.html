@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trip Pin Planner — Sapporo Road Trip</title>
+<title>Detour — Sapporo Road Trip</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <style>
   :root {
@@ -119,6 +120,30 @@
   .stop .ops button:hover { color: var(--accent); }
   .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
 
+  .brand { display: flex; align-items: baseline; gap: 8px; }
+  .brand b { font-size: 1.15rem; font-weight: 800; letter-spacing: .01em; color: var(--accent); }
+  .brand small {
+    font-size: .62rem; font-weight: 600; color: var(--muted);
+    letter-spacing: .09em; text-transform: uppercase;
+  }
+  .crew-dots { display: inline-flex; gap: 3px; align-items: center; flex-shrink: 0; }
+  .crew-dots i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .drive-badge {
+    font-size: .67rem; font-weight: 700; color: var(--muted); white-space: nowrap;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 20px; padding: 2px 8px;
+    flex-shrink: 0; font-variant-numeric: tabular-nums;
+  }
+  .drive-badge.warn { color: #b45309; border-color: #d9a765; }
+  .drive-badge.hot { color: #b91c1c; border-color: #d99a9a; }
+  .stop .acts { display: flex; gap: 8px; margin-top: 5px; align-items: center; }
+  .stop .acts button {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 20px;
+    font-size: .7rem; padding: 2px 9px; color: var(--muted);
+  }
+  .stop .acts button.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .stop .acts button.gold { color: #a16207; border-color: #d9b765; background: #fdf6e3; }
+  .stop.visited-row .num { background: #ca8a04 !important; }
+
   dialog {
     border: none; border-radius: var(--radius); padding: 18px;
     width: min(480px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.25);
@@ -152,7 +177,7 @@
   #toast.show { opacity: 1; }
 
   @media print {
-    header .spacer ~ *, .add-box, #map, .stop .ops, .day-head .mini, #liveBadge { display: none !important; }
+    header .spacer ~ *, .add-box, #map, .stop .ops, .stop .acts, .day-head .mini, #liveBadge { display: none !important; }
     main { display: block; }
     #sidebar { width: 100%; max-width: none; border: none; }
     body { height: auto; }
@@ -166,7 +191,8 @@
 </head>
 <body>
 <header>
-  <h1>🗾 <input id="tripTitle" value=""></h1>
+  <div class="brand"><b>🧭 Detour</b><small>plan the drive together</small></div>
+  <h1><input id="tripTitle" value=""></h1>
   <span id="liveBadge" title="Everyone with this link sees changes instantly">● LIVE</span>
   <span class="who">planning as <b id="whoName" title="click to change your name">…</b></span>
   <span class="spacer"></span>
@@ -321,6 +347,69 @@ function seedTrip() {
 /* ---------- state ---------- */
 let trip = null;
 let userName = localStorage.getItem(NAME_KEY) || "";
+
+/* ---------- trip meta: votes + visited ----------
+ * Stored per-device for now (localStorage, keyed by trip). Becomes synced
+ * the moment votes/visited columns are added to trip_stops. */
+const metaKey = () => "tpp.meta." + (LIVE ? LIVE_TRIP_ID : "local");
+let meta = { votes: {}, visited: {} };
+try { Object.assign(meta, JSON.parse(localStorage.getItem(metaKey()) || "{}")); } catch (e) {}
+function saveMeta() { localStorage.setItem(metaKey(), JSON.stringify(meta)); render(); }
+const voteCount = stop => Object.keys(meta.votes[stop.id] || {}).length;
+const myVote = stop => !!(meta.votes[stop.id] || {})[userName || "anonymous"];
+function toggleVote(stop) {
+  const k = userName || "anonymous";
+  const v = meta.votes[stop.id] = meta.votes[stop.id] || {};
+  if (v[k]) delete v[k]; else v[k] = 1;
+  saveMeta();
+}
+const isVisited = stop => !!meta.visited[stop.id];
+function toggleVisited(stop) {
+  if (meta.visited[stop.id]) delete meta.visited[stop.id];
+  else meta.visited[stop.id] = true;
+  saveMeta();
+}
+
+/* ---------- drive-time estimate ---------- */
+function haversineKm(a, b) {
+  const R = 6371, rad = x => x * Math.PI / 180;
+  const dLat = rad(b[0] - a[0]), dLng = rad(b[1] - a[1]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function driveMinutes(day) {
+  let km = 0;
+  for (let i = 1; i < day.stops.length; i++)
+    km += haversineKm([day.stops[i - 1].lat, day.stops[i - 1].lng], [day.stops[i].lat, day.stops[i].lng]);
+  // straight-line distance × road-winding factor, at rural average speed
+  return Math.round(km * 1.3 / 55 * 60);
+}
+function driveBadge(day) {
+  if (day.stops.length < 2 || /idea|unassigned|wish|solo/i.test(day.title)) return null;
+  const m = driveMinutes(day);
+  if (m < 10) return null;
+  const h = Math.floor(m / 60), mm = m % 60;
+  const el = document.createElement("span");
+  el.className = "drive-badge" + (m > 270 ? " hot" : m > 180 ? " warn" : "");
+  el.textContent = "🚗 ≈" + (h ? h + "h " : "") + (mm ? mm + "m" : "");
+  el.title = "Estimated driving time between stops";
+  return el;
+}
+
+/* ---------- crew presence (derived from day titles for now) ---------- */
+function crewDots(title) {
+  const t = title.toLowerCase();
+  let dots = null;
+  if (/all 4|all4|everyone/.test(t)) dots = ["#b0483f", "#b0483f", "#3f5fa8", "#3f5fa8"];
+  else if (/crew a/.test(t)) dots = ["#b0483f", "#b0483f"];
+  else if (/crew b/.test(t)) dots = ["#3f5fa8", "#3f5fa8"];
+  if (!dots) return null;
+  const s = document.createElement("span");
+  s.className = "crew-dots";
+  s.title = "Who's on the road this day";
+  dots.forEach(c => { const i = document.createElement("i"); i.style.background = c; s.appendChild(i); });
+  return s;
+}
 
 function loadLocalTrip() {
   const m = location.hash.match(/#trip=(.+)/);
@@ -604,6 +693,10 @@ function render() {
     titleInput.value = day.title;
     titleInput.onchange = () => renameDay(day, titleInput.value);
     head.appendChild(titleInput);
+    const dots = crewDots(day.title);
+    if (dots) head.appendChild(dots);
+    const drive = driveBadge(day);
+    if (drive) head.appendChild(drive);
     const delBtn = document.createElement("button");
     delBtn.className = "mini"; delBtn.textContent = "✕"; delBtn.title = "Remove day";
     delBtn.onclick = () => {
@@ -620,16 +713,22 @@ function render() {
     }
     day.stops.forEach((stop, si) => {
       const s = document.createElement("div");
-      s.className = "stop";
+      const visited = isVisited(stop);
+      s.className = "stop" + (visited ? " visited-row" : "");
       const links = (stop.links || []).map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join("");
+      const nVotes = voteCount(stop);
       s.innerHTML = `
-        <span class="num" style="background:${color}">${si + 1}</span>
+        <span class="num" style="background:${color}">${visited ? "✓" : si + 1}</span>
         <div class="body">
           <div class="name"></div>
           <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}${stop.addedBy ? " · added by " + esc(stop.addedBy) : ""}</div>
           ${links ? `<div class="links">${links}</div>` : ""}
           ${stop.notes ? `<div class="notes">${esc(stop.notes)}</div>` : ""}
+          <div class="acts">
+            <button data-op="vote" class="${myVote(stop) ? "on" : ""}" title="Vote this stop up">🔥${nVotes ? " " + nVotes : ""}</button>
+            <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
+          </div>
         </div>
         <div class="ops">
           <button title="Edit" data-op="edit">✎</button>
@@ -639,9 +738,11 @@ function render() {
       s.querySelector(".name").textContent = stop.name;
       s.querySelector(".body").style.cursor = "pointer";
       s.querySelector(".body").onclick = (ev) => {
-        if (ev.target.tagName === "A") return;
+        if (ev.target.tagName === "A" || ev.target.tagName === "BUTTON") return;
         map.setView([stop.lat, stop.lng], 13);
       };
+      s.querySelector('[data-op=vote]').onclick = () => toggleVote(stop);
+      s.querySelector('[data-op=visited]').onclick = () => toggleVisited(stop);
       s.querySelector('[data-op=edit]').onclick = () => openEdit(day, stop);
       s.querySelector('[data-op=up]').onclick = () => moveStop(day, si, -1);
       s.querySelector('[data-op=down]').onclick = () => moveStop(day, si, 1);
@@ -660,9 +761,10 @@ function renderMap() {
     const color = dayColor(di);
     const pts = [];
     day.stops.forEach((stop, si) => {
+      const visited = isVisited(stop);
       const icon = L.divIcon({
         className: "",
-        html: `<div class="day-marker" style="background:${color};width:26px;height:26px"><span>${si + 1}</span></div>`,
+        html: `<div class="day-marker" style="background:${visited ? "#ca8a04" : color};width:26px;height:26px${visited ? ";border-color:#fde68a" : ""}"><span>${visited ? "✓" : si + 1}</span></div>`,
         iconSize: [26, 26], iconAnchor: [13, 26],
       });
       const links = (stop.links || []).map(u =>
