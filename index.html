@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trip Pin Planner — Sapporo Road Trip</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --panel: #ffffff;
+    --ink: #2b2620;
+    --muted: #8a8175;
+    --line: #e7e2d8;
+    --accent: #c2410c;
+    --accent-soft: #fff1e8;
+    --radius: 12px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg); color: var(--ink);
+    height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 18px; background: var(--panel);
+    border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  }
+  header h1 { font-size: 1.1rem; font-weight: 700; }
+  header h1 input {
+    font: inherit; border: none; background: transparent; color: inherit;
+    width: 320px; border-bottom: 1px dashed transparent;
+  }
+  header h1 input:focus { outline: none; border-bottom-color: var(--accent); }
+  .who { font-size: .8rem; color: var(--muted); }
+  .who b { color: var(--accent); cursor: pointer; }
+  .spacer { flex: 1; }
+  button, .btn {
+    font: inherit; font-size: .82rem; font-weight: 600;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { filter: brightness(1.08); color: #fff; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #sidebar {
+    width: 420px; max-width: 46vw; overflow-y: auto;
+    background: var(--bg); padding: 14px; border-right: 1px solid var(--line);
+  }
+  #map { flex: 1; min-width: 0; }
+
+  .add-box {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 12px; margin-bottom: 14px;
+  }
+  .add-box h2 { font-size: .85rem; margin-bottom: 8px; }
+  .add-box .row { display: flex; gap: 6px; margin-bottom: 6px; }
+  .add-box input, .add-box select, .add-box textarea {
+    font: inherit; font-size: .85rem; flex: 1; min-width: 0;
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px;
+    background: #fcfbf8;
+  }
+  .add-box input:focus, .add-box textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .hint { font-size: .72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  .geo-results { margin-top: 6px; }
+  .geo-results button {
+    display: block; width: 100%; text-align: left; margin-bottom: 4px;
+    font-weight: 400; font-size: .8rem;
+  }
+
+  .day {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); margin-bottom: 12px; overflow: hidden;
+  }
+  .day-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-bottom: 1px solid var(--line);
+  }
+  .day-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .day-head input {
+    font: inherit; font-weight: 700; font-size: .9rem;
+    border: none; background: transparent; flex: 1; min-width: 0;
+  }
+  .day-head input:focus { outline: none; }
+  .day-head .mini { font-size: .72rem; padding: 3px 7px; }
+  .stop {
+    display: flex; gap: 9px; padding: 9px 12px;
+    border-bottom: 1px solid var(--line); align-items: flex-start;
+  }
+  .stop:last-child { border-bottom: none; }
+  .stop .num {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    color: #fff; font-size: .7rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  }
+  .stop .body { flex: 1; min-width: 0; }
+  .stop .name { font-weight: 600; font-size: .87rem; }
+  .stop .meta { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+  .stop .links { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .stop .links a {
+    font-size: .7rem; text-decoration: none; color: var(--accent);
+    background: var(--accent-soft); padding: 2px 8px; border-radius: 20px;
+  }
+  .stop .notes { font-size: .77rem; margin-top: 4px; color: #57503f; white-space: pre-wrap; }
+  .stop .ops { display: flex; flex-direction: column; gap: 2px; }
+  .stop .ops button {
+    border: none; background: none; padding: 1px 4px; font-size: .75rem; color: var(--muted);
+  }
+  .stop .ops button:hover { color: var(--accent); }
+  .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
+
+  dialog {
+    border: none; border-radius: var(--radius); padding: 18px;
+    width: min(480px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  dialog::backdrop { background: rgba(43,38,32,.45); }
+  dialog h3 { margin-bottom: 10px; font-size: 1rem; }
+  dialog label { font-size: .78rem; font-weight: 600; display: block; margin: 10px 0 4px; }
+  dialog input, dialog select, dialog textarea {
+    font: inherit; font-size: .85rem; width: 100%;
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px;
+  }
+  dialog .link-row { display: flex; gap: 6px; margin-bottom: 5px; }
+  dialog .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  .leaflet-popup-content { font-family: inherit; font-size: .82rem; }
+  .leaflet-popup-content b { font-size: .9rem; }
+  .day-marker {
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: .72rem;
+    border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  }
+  .day-marker span { transform: rotate(45deg); }
+
+  #toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; font-size: .82rem;
+    padding: 9px 16px; border-radius: 24px; opacity: 0; pointer-events: none;
+    transition: opacity .25s; z-index: 2000;
+  }
+  #toast.show { opacity: 1; }
+
+  @media print {
+    header .spacer ~ *, .add-box, #map, .stop .ops, .day-head .mini { display: none !important; }
+    main { display: block; }
+    #sidebar { width: 100%; max-width: none; border: none; }
+    body { height: auto; }
+  }
+  @media (max-width: 760px) {
+    main { flex-direction: column; }
+    #sidebar { width: 100%; max-width: none; order: 2; flex: 1; }
+    #map { height: 42vh; flex: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗾 <input id="tripTitle" value=""></h1>
+  <span class="who">planning as <b id="whoName" title="click to change your name">…</b></span>
+  <span class="spacer"></span>
+  <button id="btnShare" class="primary">🔗 Share trip link</button>
+  <button id="btnExport">⬇ Export JSON</button>
+  <button id="btnImport">⬆ Import</button>
+  <button id="btnPrint">🖨 Itinerary</button>
+  <input type="file" id="fileImport" accept=".json" hidden>
+</header>
+
+<main>
+  <div id="sidebar">
+    <div class="add-box">
+      <h2>➕ Add a place</h2>
+      <div class="row">
+        <input id="addInput" placeholder="Paste a Google Maps link, coordinates, or type a place name…">
+        <button id="btnAdd" class="primary">Add</button>
+      </div>
+      <div class="row">
+        <select id="addDay"></select>
+      </div>
+      <div class="geo-results" id="geoResults"></div>
+      <div class="hint">
+        Works with: full Google Maps URLs (containing coordinates), <code>lat, lng</code> pairs,
+        or a place-name search. Short links (<code>maps.app.goo.gl/…</code>) need to be opened in a
+        browser first — copy the full URL from the address bar and paste it here. After adding,
+        click ✎ on a stop to attach Instagram / TikTok / booking links and notes.
+      </div>
+    </div>
+    <div id="days"></div>
+    <button id="btnAddDay" style="width:100%">＋ Add a day</button>
+  </div>
+  <div id="map"></div>
+</main>
+
+<dialog id="editDialog">
+  <h3>Edit stop</h3>
+  <form method="dialog" id="editForm">
+    <label>Name</label>
+    <input id="editName">
+    <label>Day</label>
+    <select id="editDaySel"></select>
+    <label>Links <span style="font-weight:400;color:var(--muted)">(Google Maps, Instagram, TikTok, booking pages…)</span></label>
+    <div id="editLinks"></div>
+    <button type="button" id="btnAddLink" style="font-size:.75rem;margin-top:2px">＋ add link</button>
+    <label>Notes</label>
+    <textarea id="editNotes" rows="3" placeholder="opening hours, what to order, parking tips…"></textarea>
+    <div class="actions">
+      <button type="button" id="btnDeleteStop" style="margin-right:auto;color:#b91c1c">Delete stop</button>
+      <button type="button" id="btnCancelEdit">Cancel</button>
+      <button type="submit" class="primary" id="btnSaveEdit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+"use strict";
+/* ------------------------------------------------------------------ *
+ * Trip Pin Planner
+ * Collaboration model (v1, serverless):
+ *   - trip state lives in localStorage
+ *   - "Share trip link" encodes the whole trip into the URL fragment;
+ *     anyone opening the link imports that snapshot, adds their pins,
+ *     and shares a new link back
+ *   - Export/Import JSON for backups and merging
+ * ------------------------------------------------------------------ */
+
+const DAY_COLORS = ["#c2410c","#0e7490","#7c3aed","#15803d","#b45309","#be185d","#1d4ed8","#4d7c0f"];
+const STORE_KEY = "tpp.trip.v1";
+const NAME_KEY = "tpp.username";
+
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+function seedTrip() {
+  const mk = (name, lat, lng, links, notes) =>
+    ({ id: uid(), name, lat, lng, links: links || [], notes: notes || "", addedBy: "starter" });
+  return {
+    title: "Sapporo Road Trip",
+    days: [
+      { id: uid(), title: "Day 1 — Sapporo city", stops: [
+        mk("Nijo Market", 43.0570, 141.3612, [], "Morning kaisendon run"),
+        mk("Odori Park", 43.0606, 141.3472),
+        mk("Sapporo Beer Garden", 43.0713, 141.3697, [], "Genghis Khan BBQ dinner"),
+        mk("Mt. Moiwa Ropeway", 43.0333, 141.3222, [], "Night view — go after sunset"),
+      ]},
+      { id: uid(), title: "Day 2 — Otaru & Yoichi", stops: [
+        mk("Otaru Canal", 43.1985, 140.9959),
+        mk("Sankaku Market", 43.1990, 140.9917, [], "Seafood breakfast"),
+        mk("Nikka Whisky Yoichi Distillery", 43.1912, 140.7852, [], "Book tour ahead"),
+      ]},
+      { id: uid(), title: "Day 3 — Furano & Biei", stops: [
+        mk("Farm Tomita", 43.4178, 142.4270, [], "Lavender fields + melon soft serve"),
+        mk("Shikisai-no-oka", 43.5387, 142.4785),
+        mk("Blue Pond (Aoiike)", 43.4839, 142.6270),
+      ]},
+      { id: uid(), title: "Day 4 — Lake Toya & Noboribetsu", stops: [
+        mk("Lake Toya", 42.6048, 140.8464),
+        mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [], "Onsen stop"),
+      ]},
+      { id: uid(), title: "Ideas / unassigned", stops: [
+        mk("Shiroi Koibito Park", 43.0879, 141.2717),
+        mk("Jozankei Onsen", 42.9679, 141.1678),
+      ]},
+    ],
+  };
+}
+
+/* ---------- state ---------- */
+let trip = null;
+let userName = localStorage.getItem(NAME_KEY) || "";
+
+function loadTrip() {
+  // A #trip= fragment (a shared link) wins over local state.
+  const m = location.hash.match(/#trip=(.+)/);
+  if (m) {
+    try {
+      const shared = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));
+      history.replaceState(null, "", location.pathname);
+      toast("Loaded shared trip — your additions stay on this device until you share back");
+      return shared;
+    } catch (e) { console.warn("Bad share link", e); }
+  }
+  const raw = localStorage.getItem(STORE_KEY);
+  if (raw) { try { return JSON.parse(raw); } catch (e) {} }
+  return seedTrip();
+}
+
+function save() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(trip));
+  render();
+}
+
+/* ---------- link / coordinate parsing ---------- */
+function parseGoogleMapsUrl(text) {
+  // !3d<lat>!4d<lng> — precise pin position in place URLs
+  let m = text.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (m) return { lat: +m[1], lng: +m[2] };
+  // @lat,lng,zoom — map viewport centre
+  m = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) return { lat: +m[1], lng: +m[2] };
+  // q=lat,lng or ll=lat,lng
+  m = text.match(/[?&](?:q|ll|query)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/);
+  if (m) return { lat: +m[1], lng: +m[2] };
+  return null;
+}
+function parseLatLng(text) {
+  const m = text.trim().match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+  if (m) {
+    const lat = +m[1], lng = +m[2];
+    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng };
+  }
+  return null;
+}
+function nameFromGoogleMapsUrl(url) {
+  const m = url.match(/\/place\/([^/@?]+)/);
+  if (m) return decodeURIComponent(m[1].replace(/\+/g, " "));
+  return null;
+}
+function linkLabel(url) {
+  try {
+    const h = new URL(url).hostname.replace(/^www\./, "");
+    if (h.includes("instagram")) return "📷 Instagram";
+    if (h.includes("tiktok")) return "🎵 TikTok";
+    if (h.includes("google") && (url.includes("/maps") || h.startsWith("maps"))) return "📍 Google Maps";
+    if (h.includes("goo.gl")) return "📍 Google Maps";
+    if (h.includes("youtube") || h.includes("youtu.be")) return "▶ YouTube";
+    if (h.includes("tabelog")) return "🍜 Tabelog";
+    if (h.includes("booking") || h.includes("airbnb") || h.includes("agoda")) return "🏨 Stay";
+    return "🌐 " + h;
+  } catch (e) { return "🌐 link"; }
+}
+
+/* ---------- add flow ---------- */
+async function handleAdd() {
+  const input = document.getElementById("addInput");
+  const text = input.value.trim();
+  const dayId = document.getElementById("addDay").value;
+  if (!text) return;
+
+  if (/maps\.app\.goo\.gl|goo\.gl\/maps/.test(text)) {
+    toast("That's a shortened link — open it in a browser and paste the full URL from the address bar");
+    return;
+  }
+
+  let coords = null, name = null, links = [];
+  if (/^https?:\/\//.test(text)) {
+    coords = parseGoogleMapsUrl(text);
+    name = nameFromGoogleMapsUrl(text) || "Pinned place";
+    links = [text];
+    if (!coords) { toast("No coordinates found in that URL — try a maps.google.com/maps?q=… or /place/ URL"); return; }
+  } else if ((coords = parseLatLng(text))) {
+    name = "Pinned spot " + coords.lat.toFixed(3) + ", " + coords.lng.toFixed(3);
+  } else {
+    await geocodeSearch(text, dayId);
+    return;
+  }
+  addStop(dayId, { name, ...coords, links });
+  input.value = "";
+}
+
+async function geocodeSearch(query, dayId) {
+  const box = document.getElementById("geoResults");
+  box.innerHTML = '<span class="hint">Searching…</span>';
+  try {
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" +
+      encodeURIComponent(query + " Hokkaido Japan");
+    const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+    let results = await res.json();
+    if (!results.length) {
+      const res2 = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" + encodeURIComponent(query));
+      results = await res2.json();
+    }
+    if (!results.length) { box.innerHTML = '<span class="hint">No matches — paste a Google Maps URL or "lat, lng" instead.</span>'; return; }
+    box.innerHTML = "";
+    results.forEach(r => {
+      const b = document.createElement("button");
+      b.textContent = "📍 " + r.display_name;
+      b.onclick = () => {
+        addStop(dayId, { name: query, lat: +r.lat, lng: +r.lon, links: [] });
+        document.getElementById("addInput").value = "";
+        box.innerHTML = "";
+      };
+      box.appendChild(b);
+    });
+  } catch (e) {
+    box.innerHTML = '<span class="hint">Search unavailable — paste a Google Maps URL or "lat, lng" instead.</span>';
+  }
+}
+
+function addStop(dayId, { name, lat, lng, links }) {
+  const day = trip.days.find(d => d.id === dayId) || trip.days[trip.days.length - 1];
+  day.stops.push({ id: uid(), name, lat, lng, links: links || [], notes: "", addedBy: userName });
+  save();
+  toast(`Added "${name}" to ${day.title}`);
+  const stop = day.stops[day.stops.length - 1];
+  map.setView([stop.lat, stop.lng], Math.max(map.getZoom(), 11));
+}
+
+/* ---------- rendering ---------- */
+let map, layerGroup;
+
+function dayColor(i) { return DAY_COLORS[i % DAY_COLORS.length]; }
+
+function render() {
+  document.getElementById("tripTitle").value = trip.title;
+  document.getElementById("whoName").textContent = userName || "anonymous";
+
+  const daySel = document.getElementById("addDay");
+  daySel.innerHTML = trip.days.map(d => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+
+  const container = document.getElementById("days");
+  container.innerHTML = "";
+  trip.days.forEach((day, di) => {
+    const color = dayColor(di);
+    const el = document.createElement("div");
+    el.className = "day";
+    const head = document.createElement("div");
+    head.className = "day-head";
+    head.innerHTML = `<span class="day-dot" style="background:${color}"></span>`;
+    const titleInput = document.createElement("input");
+    titleInput.value = day.title;
+    titleInput.onchange = () => { day.title = titleInput.value; save(); };
+    head.appendChild(titleInput);
+    const delBtn = document.createElement("button");
+    delBtn.className = "mini"; delBtn.textContent = "✕"; delBtn.title = "Remove day";
+    delBtn.onclick = () => {
+      if (day.stops.length && !confirm(`Remove "${day.title}" and its ${day.stops.length} stop(s)?`)) return;
+      trip.days = trip.days.filter(d => d.id !== day.id); save();
+    };
+    head.appendChild(delBtn);
+    el.appendChild(head);
+
+    if (!day.stops.length) {
+      const e = document.createElement("div");
+      e.className = "empty-day"; e.textContent = "No stops yet";
+      el.appendChild(e);
+    }
+    day.stops.forEach((stop, si) => {
+      const s = document.createElement("div");
+      s.className = "stop";
+      const links = (stop.links || []).map(u =>
+        `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join("");
+      s.innerHTML = `
+        <span class="num" style="background:${color}">${si + 1}</span>
+        <div class="body">
+          <div class="name"></div>
+          <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}${stop.addedBy ? " · added by " + esc(stop.addedBy) : ""}</div>
+          ${links ? `<div class="links">${links}</div>` : ""}
+          ${stop.notes ? `<div class="notes">${esc(stop.notes)}</div>` : ""}
+        </div>
+        <div class="ops">
+          <button title="Edit" data-op="edit">✎</button>
+          <button title="Move up" data-op="up">↑</button>
+          <button title="Move down" data-op="down">↓</button>
+        </div>`;
+      s.querySelector(".name").textContent = stop.name;
+      s.querySelector(".body").style.cursor = "pointer";
+      s.querySelector(".body").onclick = (ev) => {
+        if (ev.target.tagName === "A") return;
+        map.setView([stop.lat, stop.lng], 13);
+      };
+      s.querySelector('[data-op=edit]').onclick = () => openEdit(day, stop);
+      s.querySelector('[data-op=up]').onclick = () => { moveStop(day, si, -1); };
+      s.querySelector('[data-op=down]').onclick = () => { moveStop(day, si, 1); };
+      el.appendChild(s);
+    });
+    container.appendChild(el);
+  });
+
+  renderMap();
+}
+
+function moveStop(day, i, delta) {
+  const j = i + delta;
+  if (j < 0 || j >= day.stops.length) return;
+  [day.stops[i], day.stops[j]] = [day.stops[j], day.stops[i]];
+  save();
+}
+
+function renderMap() {
+  layerGroup.clearLayers();
+  const allPts = [];
+  trip.days.forEach((day, di) => {
+    const color = dayColor(di);
+    const pts = [];
+    day.stops.forEach((stop, si) => {
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="day-marker" style="background:${color};width:26px;height:26px"><span>${si + 1}</span></div>`,
+        iconSize: [26, 26], iconAnchor: [13, 26],
+      });
+      const links = (stop.links || []).map(u =>
+        `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join(" · ");
+      const marker = L.marker([stop.lat, stop.lng], { icon })
+        .bindPopup(`<b>${esc(stop.name)}</b><br><span style="color:${color}">${esc(day.title)}</span>` +
+          (links ? "<br>" + links : "") +
+          (stop.notes ? `<br><i>${esc(stop.notes)}</i>` : ""));
+      layerGroup.addLayer(marker);
+      pts.push([stop.lat, stop.lng]);
+      allPts.push([stop.lat, stop.lng]);
+    });
+    if (pts.length > 1 && !/idea|unassigned|wish/i.test(day.title)) {
+      layerGroup.addLayer(L.polyline(pts, { color, weight: 3, opacity: .55, dashArray: "6 8" }));
+    }
+  });
+  if (allPts.length && !map._userMoved) map.fitBounds(allPts, { padding: [40, 40] });
+}
+
+/* ---------- edit dialog ---------- */
+let editing = null;
+
+function openEdit(day, stop) {
+  editing = { day, stop };
+  document.getElementById("editName").value = stop.name;
+  document.getElementById("editNotes").value = stop.notes || "";
+  const sel = document.getElementById("editDaySel");
+  sel.innerHTML = trip.days.map(d =>
+    `<option value="${d.id}" ${d.id === day.id ? "selected" : ""}>${esc(d.title)}</option>`).join("");
+  const linksBox = document.getElementById("editLinks");
+  linksBox.innerHTML = "";
+  (stop.links || []).forEach(u => addLinkRow(u));
+  if (!(stop.links || []).length) addLinkRow("");
+  document.getElementById("editDialog").showModal();
+}
+
+function addLinkRow(value) {
+  const row = document.createElement("div");
+  row.className = "link-row";
+  row.innerHTML = `<input placeholder="https://instagram.com/p/… or a Google Maps link" value="${esc(value)}">
+    <button type="button" title="remove">✕</button>`;
+  row.querySelector("button").onclick = () => row.remove();
+  document.getElementById("editLinks").appendChild(row);
+}
+
+document.getElementById("btnAddLink").onclick = () => addLinkRow("");
+document.getElementById("btnCancelEdit").onclick = () => document.getElementById("editDialog").close();
+document.getElementById("btnDeleteStop").onclick = () => {
+  if (!editing) return;
+  if (!confirm(`Delete "${editing.stop.name}"?`)) return;
+  editing.day.stops = editing.day.stops.filter(s => s.id !== editing.stop.id);
+  document.getElementById("editDialog").close();
+  save();
+};
+document.getElementById("editForm").onsubmit = () => {
+  if (!editing) return;
+  const { day, stop } = editing;
+  stop.name = document.getElementById("editName").value.trim() || stop.name;
+  stop.notes = document.getElementById("editNotes").value;
+  stop.links = [...document.querySelectorAll("#editLinks input")]
+    .map(i => i.value.trim()).filter(Boolean);
+  const newDayId = document.getElementById("editDaySel").value;
+  if (newDayId !== day.id) {
+    day.stops = day.stops.filter(s => s.id !== stop.id);
+    trip.days.find(d => d.id === newDayId).stops.push(stop);
+  }
+  save();
+};
+
+/* ---------- share / import / export ---------- */
+document.getElementById("btnShare").onclick = () => {
+  const payload = btoa(unescape(encodeURIComponent(JSON.stringify(trip))));
+  const url = location.origin + location.pathname + "#trip=" + encodeURIComponent(payload);
+  navigator.clipboard.writeText(url).then(
+    () => toast("Share link copied — send it to your travel crew 🎉"),
+    () => prompt("Copy this link:", url));
+};
+document.getElementById("btnExport").onclick = () => {
+  const blob = new Blob([JSON.stringify(trip, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = trip.title.replace(/\s+/g, "-").toLowerCase() + ".json";
+  a.click();
+};
+document.getElementById("btnImport").onclick = () => document.getElementById("fileImport").click();
+document.getElementById("fileImport").onchange = (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  f.text().then(t => {
+    try { trip = JSON.parse(t); save(); toast("Trip imported"); }
+    catch (err) { toast("That file isn't a valid trip JSON"); }
+  });
+};
+document.getElementById("btnPrint").onclick = () => window.print();
+
+/* ---------- misc wiring ---------- */
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500);
+}
+
+document.getElementById("tripTitle").onchange = (e) => { trip.title = e.target.value; save(); };
+document.getElementById("btnAdd").onclick = handleAdd;
+document.getElementById("addInput").onkeydown = (e) => { if (e.key === "Enter") handleAdd(); };
+document.getElementById("btnAddDay").onclick = () => {
+  trip.days.push({ id: uid(), title: "Day " + (trip.days.length + 1), stops: [] });
+  save();
+};
+document.getElementById("whoName").onclick = () => {
+  const n = prompt("Your name (shows on pins you add):", userName || "");
+  if (n !== null) { userName = n.trim(); localStorage.setItem(NAME_KEY, userName); render(); }
+};
+
+/* ---------- boot ---------- */
+trip = loadTrip();
+if (!userName) {
+  const n = prompt("Welcome! What's your name? (shows on pins you add)", "");
+  userName = (n || "").trim();
+  if (userName) localStorage.setItem(NAME_KEY, userName);
+}
+map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
+map.on("dragstart zoomstart", () => { map._userMoved = true; });
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+}).addTo(map);
+layerGroup = L.layerGroup().addTo(map);
+render();
+localStorage.setItem(STORE_KEY, JSON.stringify(trip));
+</script>
+</body>
+</html>
