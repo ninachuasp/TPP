@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trip Pin Planner — Sapporo Road Trip</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="vendor/leaflet.css">
 <style>
   :root {
     --bg: #f7f5f0;
@@ -14,6 +14,7 @@
     --line: #e7e2d8;
     --accent: #c2410c;
     --accent-soft: #fff1e8;
+    --live: #15803d;
     --radius: 12px;
     font-size: 15px;
   }
@@ -36,6 +37,12 @@
   header h1 input:focus { outline: none; border-bottom-color: var(--accent); }
   .who { font-size: .8rem; color: var(--muted); }
   .who b { color: var(--accent); cursor: pointer; }
+  #liveBadge {
+    font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+    color: var(--live); border: 1px solid var(--live); border-radius: 20px;
+    padding: 2px 9px; display: none;
+  }
+  #liveBadge.on { display: inline-block; }
   .spacer { flex: 1; }
   button, .btn {
     font: inherit; font-size: .82rem; font-weight: 600;
@@ -140,12 +147,12 @@
     position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
     background: var(--ink); color: #fff; font-size: .82rem;
     padding: 9px 16px; border-radius: 24px; opacity: 0; pointer-events: none;
-    transition: opacity .25s; z-index: 2000;
+    transition: opacity .25s; z-index: 2000; max-width: 92vw;
   }
   #toast.show { opacity: 1; }
 
   @media print {
-    header .spacer ~ *, .add-box, #map, .stop .ops, .day-head .mini { display: none !important; }
+    header .spacer ~ *, .add-box, #map, .stop .ops, .day-head .mini, #liveBadge { display: none !important; }
     main { display: block; }
     #sidebar { width: 100%; max-width: none; border: none; }
     body { height: auto; }
@@ -160,8 +167,10 @@
 <body>
 <header>
   <h1>🗾 <input id="tripTitle" value=""></h1>
+  <span id="liveBadge" title="Everyone with this link sees changes instantly">● LIVE</span>
   <span class="who">planning as <b id="whoName" title="click to change your name">…</b></span>
   <span class="spacer"></span>
+  <button id="btnGoLive" class="primary" hidden>⚡ Go live</button>
   <button id="btnShare" class="primary">🔗 Share trip link</button>
   <button id="btnExport">⬇ Export JSON</button>
   <button id="btnImport">⬆ Import</button>
@@ -216,24 +225,35 @@
 
 <div id="toast"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/supabase.js"></script>
 <script>
 "use strict";
 /* ------------------------------------------------------------------ *
  * Trip Pin Planner
- * Collaboration model (v1, serverless):
- *   - trip state lives in localStorage
- *   - "Share trip link" encodes the whole trip into the URL fragment;
- *     anyone opening the link imports that snapshot, adds their pins,
- *     and shares a new link back
- *   - Export/Import JSON for backups and merging
+ * Two modes:
+ *   LOCAL — trip lives in localStorage; share via URL-encoded snapshot
+ *           or Export/Import JSON. Works fully offline.
+ *   LIVE  — opened with ?trip=<uuid>: trip lives in Supabase; every
+ *           edit is written to the database and realtime change events
+ *           update everyone else's screen. "Go live" promotes a local
+ *           trip to a live one.
  * ------------------------------------------------------------------ */
 
-const DAY_COLORS = ["#c2410c","#0e7490","#7c3aed","#15803d","#b45309","#be185d","#1d4ed8","#4d7c0f"];
+const SB_URL = "https://wcncgckvrvlvbmqergvd.supabase.co";
+const SB_KEY = "sb_publishable_1grF-44ak6XLoHYzuNOTaQ_5zQxlXK7";
+
+const DAY_COLORS = ["#c2410c","#0e7490","#7c3aed","#15803d","#b45309","#be185d","#1d4ed8","#4d7c0f","#9f1239","#374151"];
 const STORE_KEY = "tpp.trip.v2";
 const NAME_KEY = "tpp.username";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
+const $ = id => document.getElementById(id);
+
+const params = new URLSearchParams(location.search);
+const LIVE_TRIP_ID = params.get("trip");
+const LIVE = !!LIVE_TRIP_ID;
+const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY) : null;
 
 function seedTrip() {
   const mk = (name, lat, lng, links, notes) =>
@@ -302,8 +322,7 @@ function seedTrip() {
 let trip = null;
 let userName = localStorage.getItem(NAME_KEY) || "";
 
-function loadTrip() {
-  // A #trip= fragment (a shared link) wins over local state.
+function loadLocalTrip() {
   const m = location.hash.match(/#trip=(.+)/);
   if (m) {
     try {
@@ -318,20 +337,158 @@ function loadTrip() {
   return seedTrip();
 }
 
-function save() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(trip));
-  render();
+/* ---------- live data layer (Supabase) ---------- */
+async function fetchLiveTrip() {
+  const [t, d, s] = await Promise.all([
+    sb.from("trip_trips").select("*").eq("id", LIVE_TRIP_ID).single(),
+    sb.from("trip_days").select("*").eq("trip_id", LIVE_TRIP_ID).order("position").order("id"),
+    sb.from("trip_stops").select("*").eq("trip_id", LIVE_TRIP_ID).order("position").order("id"),
+  ]);
+  if (t.error) throw t.error;
+  const days = (d.data || []).map(day => ({
+    id: day.id, title: day.title,
+    stops: (s.data || []).filter(x => x.day_id === day.id).map(x => ({
+      id: x.id, name: x.name, lat: x.lat, lng: x.lng,
+      links: x.links || [], notes: x.notes || "", addedBy: x.added_by || "",
+    })),
+  }));
+  return { id: t.data.id, title: t.data.title, days };
+}
+
+let refreshTimer = null;
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    try { trip = await fetchLiveTrip(); render(); }
+    catch (e) { console.warn(e); }
+  }, 200);
+}
+
+function subscribeLive() {
+  const opts = table => ({
+    event: "*", schema: "public", table,
+    filter: "trip_id=eq." + LIVE_TRIP_ID,
+  });
+  sb.channel("trip-" + LIVE_TRIP_ID)
+    .on("postgres_changes", { event: "*", schema: "public", table: "trip_trips", filter: "id=eq." + LIVE_TRIP_ID }, scheduleRefresh)
+    .on("postgres_changes", opts("trip_days"), scheduleRefresh)
+    .on("postgres_changes", opts("trip_stops"), scheduleRefresh)
+    .subscribe();
+}
+
+async function dbTry(promise, okMsg) {
+  const { error } = await promise;
+  if (error) { console.warn(error); toast("Sync failed: " + error.message); return false; }
+  if (okMsg) toast(okMsg);
+  scheduleRefresh();
+  return true;
+}
+
+/* ---------- mutations (branch on mode) ---------- */
+function persistLocal() { localStorage.setItem(STORE_KEY, JSON.stringify(trip)); render(); }
+
+function setTripTitle(title) {
+  trip.title = title;
+  if (LIVE) dbTry(sb.from("trip_trips").update({ title }).eq("id", LIVE_TRIP_ID));
+  else persistLocal();
+}
+function addDayM() {
+  const title = "Day " + (trip.days.length + 1);
+  if (LIVE) dbTry(sb.from("trip_days").insert({ trip_id: LIVE_TRIP_ID, title, position: trip.days.length }));
+  else { trip.days.push({ id: uid(), title, stops: [] }); persistLocal(); }
+}
+function renameDay(day, title) {
+  day.title = title;
+  if (LIVE) dbTry(sb.from("trip_days").update({ title }).eq("id", day.id));
+  else persistLocal();
+}
+function removeDay(day) {
+  if (LIVE) dbTry(sb.from("trip_days").delete().eq("id", day.id));
+  else { trip.days = trip.days.filter(d => d.id !== day.id); persistLocal(); }
+}
+function addStopM(dayId, { name, lat, lng, links }) {
+  const day = trip.days.find(d => d.id === dayId) || trip.days[trip.days.length - 1];
+  if (LIVE) {
+    dbTry(sb.from("trip_stops").insert({
+      trip_id: LIVE_TRIP_ID, day_id: day.id, name, lat, lng,
+      links: links || [], added_by: userName, position: day.stops.length,
+    }), `Added "${name}" to ${day.title}`);
+  } else {
+    day.stops.push({ id: uid(), name, lat, lng, links: links || [], notes: "", addedBy: userName });
+    persistLocal();
+    toast(`Added "${name}" to ${day.title}`);
+  }
+  map.setView([lat, lng], Math.max(map.getZoom(), 11));
+}
+function updateStopM(day, stop, fields, newDayId) {
+  Object.assign(stop, fields);
+  if (LIVE) {
+    const patch = { name: fields.name, notes: fields.notes, links: fields.links };
+    if (newDayId && newDayId !== day.id) {
+      const target = trip.days.find(d => d.id === newDayId);
+      patch.day_id = newDayId;
+      patch.position = target ? target.stops.length : 0;
+    }
+    dbTry(sb.from("trip_stops").update(patch).eq("id", stop.id));
+  } else {
+    if (newDayId && newDayId !== day.id) {
+      day.stops = day.stops.filter(s => s.id !== stop.id);
+      trip.days.find(d => d.id === newDayId).stops.push(stop);
+    }
+    persistLocal();
+  }
+}
+function deleteStopM(day, stop) {
+  if (LIVE) dbTry(sb.from("trip_stops").delete().eq("id", stop.id));
+  else { day.stops = day.stops.filter(s => s.id !== stop.id); persistLocal(); }
+}
+function moveStop(day, i, delta) {
+  const j = i + delta;
+  if (j < 0 || j >= day.stops.length) return;
+  const a = day.stops[i], b = day.stops[j];
+  [day.stops[i], day.stops[j]] = [b, a];
+  if (LIVE) {
+    Promise.all([
+      sb.from("trip_stops").update({ position: j }).eq("id", a.id),
+      sb.from("trip_stops").update({ position: i }).eq("id", b.id),
+    ]).then(scheduleRefresh);
+    render();
+  } else persistLocal();
+}
+
+/* ---------- go live: promote local trip to Supabase ---------- */
+async function goLive() {
+  if (!sb) { toast("Supabase client failed to load"); return; }
+  if (!confirm("Publish this trip so everyone with the link can edit it live?")) return;
+  try {
+    const t = await sb.from("trip_trips").insert({ title: trip.title }).select().single();
+    if (t.error) throw t.error;
+    for (let di = 0; di < trip.days.length; di++) {
+      const day = trip.days[di];
+      const d = await sb.from("trip_days").insert({ trip_id: t.data.id, title: day.title, position: di }).select().single();
+      if (d.error) throw d.error;
+      if (day.stops.length) {
+        const rows = day.stops.map((s, si) => ({
+          trip_id: t.data.id, day_id: d.data.id, name: s.name, lat: s.lat, lng: s.lng,
+          links: s.links || [], notes: s.notes || "", added_by: s.addedBy || "", position: si,
+        }));
+        const r = await sb.from("trip_stops").insert(rows);
+        if (r.error) throw r.error;
+      }
+    }
+    location.search = "?trip=" + t.data.id;
+  } catch (e) {
+    console.warn(e);
+    toast("Couldn't go live: " + e.message);
+  }
 }
 
 /* ---------- link / coordinate parsing ---------- */
 function parseGoogleMapsUrl(text) {
-  // !3d<lat>!4d<lng> — precise pin position in place URLs
   let m = text.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
   if (m) return { lat: +m[1], lng: +m[2] };
-  // @lat,lng,zoom — map viewport centre
   m = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
   if (m) return { lat: +m[1], lng: +m[2] };
-  // q=lat,lng or ll=lat,lng
   m = text.match(/[?&](?:q|ll|query)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/);
   if (m) return { lat: +m[1], lng: +m[2] };
   return null;
@@ -365,9 +522,9 @@ function linkLabel(url) {
 
 /* ---------- add flow ---------- */
 async function handleAdd() {
-  const input = document.getElementById("addInput");
+  const input = $("addInput");
   const text = input.value.trim();
-  const dayId = document.getElementById("addDay").value;
+  const dayId = $("addDay").value;
   if (!text) return;
 
   if (/maps\.app\.goo\.gl|goo\.gl\/maps/.test(text)) {
@@ -387,12 +544,12 @@ async function handleAdd() {
     await geocodeSearch(text, dayId);
     return;
   }
-  addStop(dayId, { name, ...coords, links });
+  addStopM(dayId, { name, ...coords, links });
   input.value = "";
 }
 
 async function geocodeSearch(query, dayId) {
-  const box = document.getElementById("geoResults");
+  const box = $("geoResults");
   box.innerHTML = '<span class="hint">Searching…</span>';
   try {
     const url = "https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" +
@@ -409,8 +566,8 @@ async function geocodeSearch(query, dayId) {
       const b = document.createElement("button");
       b.textContent = "📍 " + r.display_name;
       b.onclick = () => {
-        addStop(dayId, { name: query, lat: +r.lat, lng: +r.lon, links: [] });
-        document.getElementById("addInput").value = "";
+        addStopM(dayId, { name: query, lat: +r.lat, lng: +r.lon, links: [] });
+        $("addInput").value = "";
         box.innerHTML = "";
       };
       box.appendChild(b);
@@ -420,28 +577,21 @@ async function geocodeSearch(query, dayId) {
   }
 }
 
-function addStop(dayId, { name, lat, lng, links }) {
-  const day = trip.days.find(d => d.id === dayId) || trip.days[trip.days.length - 1];
-  day.stops.push({ id: uid(), name, lat, lng, links: links || [], notes: "", addedBy: userName });
-  save();
-  toast(`Added "${name}" to ${day.title}`);
-  const stop = day.stops[day.stops.length - 1];
-  map.setView([stop.lat, stop.lng], Math.max(map.getZoom(), 11));
-}
-
 /* ---------- rendering ---------- */
 let map, layerGroup;
 
 function dayColor(i) { return DAY_COLORS[i % DAY_COLORS.length]; }
 
 function render() {
-  document.getElementById("tripTitle").value = trip.title;
-  document.getElementById("whoName").textContent = userName || "anonymous";
+  $("tripTitle").value = trip.title;
+  $("whoName").textContent = userName || "anonymous";
 
-  const daySel = document.getElementById("addDay");
+  const daySel = $("addDay");
+  const prevSel = daySel.value;
   daySel.innerHTML = trip.days.map(d => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  if ([...daySel.options].some(o => o.value === prevSel)) daySel.value = prevSel;
 
-  const container = document.getElementById("days");
+  const container = $("days");
   container.innerHTML = "";
   trip.days.forEach((day, di) => {
     const color = dayColor(di);
@@ -452,13 +602,13 @@ function render() {
     head.innerHTML = `<span class="day-dot" style="background:${color}"></span>`;
     const titleInput = document.createElement("input");
     titleInput.value = day.title;
-    titleInput.onchange = () => { day.title = titleInput.value; save(); };
+    titleInput.onchange = () => renameDay(day, titleInput.value);
     head.appendChild(titleInput);
     const delBtn = document.createElement("button");
     delBtn.className = "mini"; delBtn.textContent = "✕"; delBtn.title = "Remove day";
     delBtn.onclick = () => {
       if (day.stops.length && !confirm(`Remove "${day.title}" and its ${day.stops.length} stop(s)?`)) return;
-      trip.days = trip.days.filter(d => d.id !== day.id); save();
+      removeDay(day);
     };
     head.appendChild(delBtn);
     el.appendChild(head);
@@ -493,21 +643,14 @@ function render() {
         map.setView([stop.lat, stop.lng], 13);
       };
       s.querySelector('[data-op=edit]').onclick = () => openEdit(day, stop);
-      s.querySelector('[data-op=up]').onclick = () => { moveStop(day, si, -1); };
-      s.querySelector('[data-op=down]').onclick = () => { moveStop(day, si, 1); };
+      s.querySelector('[data-op=up]').onclick = () => moveStop(day, si, -1);
+      s.querySelector('[data-op=down]').onclick = () => moveStop(day, si, 1);
       el.appendChild(s);
     });
     container.appendChild(el);
   });
 
   renderMap();
-}
-
-function moveStop(day, i, delta) {
-  const j = i + delta;
-  if (j < 0 || j >= day.stops.length) return;
-  [day.stops[i], day.stops[j]] = [day.stops[j], day.stops[i]];
-  save();
 }
 
 function renderMap() {
@@ -532,7 +675,7 @@ function renderMap() {
       pts.push([stop.lat, stop.lng]);
       allPts.push([stop.lat, stop.lng]);
     });
-    if (pts.length > 1 && !/idea|unassigned|wish/i.test(day.title)) {
+    if (pts.length > 1 && !/idea|unassigned|wish|solo/i.test(day.title)) {
       layerGroup.addLayer(L.polyline(pts, { color, weight: 3, opacity: .55, dashArray: "6 8" }));
     }
   });
@@ -544,113 +687,129 @@ let editing = null;
 
 function openEdit(day, stop) {
   editing = { day, stop };
-  document.getElementById("editName").value = stop.name;
-  document.getElementById("editNotes").value = stop.notes || "";
-  const sel = document.getElementById("editDaySel");
+  $("editName").value = stop.name;
+  $("editNotes").value = stop.notes || "";
+  const sel = $("editDaySel");
   sel.innerHTML = trip.days.map(d =>
     `<option value="${d.id}" ${d.id === day.id ? "selected" : ""}>${esc(d.title)}</option>`).join("");
-  const linksBox = document.getElementById("editLinks");
+  const linksBox = $("editLinks");
   linksBox.innerHTML = "";
   (stop.links || []).forEach(u => addLinkRow(u));
   if (!(stop.links || []).length) addLinkRow("");
-  document.getElementById("editDialog").showModal();
+  $("editDialog").showModal();
 }
 
 function addLinkRow(value) {
   const row = document.createElement("div");
   row.className = "link-row";
-  row.innerHTML = `<input placeholder="https://instagram.com/p/… or a Google Maps link" value="${esc(value)}">
+  row.innerHTML = `<input placeholder="https://instagram.com/p/… or a Google Maps link">
     <button type="button" title="remove">✕</button>`;
+  row.querySelector("input").value = value || "";
   row.querySelector("button").onclick = () => row.remove();
-  document.getElementById("editLinks").appendChild(row);
+  $("editLinks").appendChild(row);
 }
 
-document.getElementById("btnAddLink").onclick = () => addLinkRow("");
-document.getElementById("btnCancelEdit").onclick = () => document.getElementById("editDialog").close();
-document.getElementById("btnDeleteStop").onclick = () => {
+$("btnAddLink").onclick = () => addLinkRow("");
+$("btnCancelEdit").onclick = () => $("editDialog").close();
+$("btnDeleteStop").onclick = () => {
   if (!editing) return;
   if (!confirm(`Delete "${editing.stop.name}"?`)) return;
-  editing.day.stops = editing.day.stops.filter(s => s.id !== editing.stop.id);
-  document.getElementById("editDialog").close();
-  save();
+  deleteStopM(editing.day, editing.stop);
+  $("editDialog").close();
 };
-document.getElementById("editForm").onsubmit = () => {
+$("editForm").onsubmit = () => {
   if (!editing) return;
   const { day, stop } = editing;
-  stop.name = document.getElementById("editName").value.trim() || stop.name;
-  stop.notes = document.getElementById("editNotes").value;
-  stop.links = [...document.querySelectorAll("#editLinks input")]
-    .map(i => i.value.trim()).filter(Boolean);
-  const newDayId = document.getElementById("editDaySel").value;
-  if (newDayId !== day.id) {
-    day.stops = day.stops.filter(s => s.id !== stop.id);
-    trip.days.find(d => d.id === newDayId).stops.push(stop);
-  }
-  save();
+  updateStopM(day, stop, {
+    name: $("editName").value.trim() || stop.name,
+    notes: $("editNotes").value,
+    links: [...document.querySelectorAll("#editLinks input")].map(i => i.value.trim()).filter(Boolean),
+  }, $("editDaySel").value);
 };
 
 /* ---------- share / import / export ---------- */
-document.getElementById("btnShare").onclick = () => {
-  const payload = btoa(unescape(encodeURIComponent(JSON.stringify(trip))));
-  const url = location.origin + location.pathname + "#trip=" + encodeURIComponent(payload);
+$("btnShare").onclick = () => {
+  let url;
+  if (LIVE) {
+    url = location.href;
+  } else {
+    const payload = btoa(unescape(encodeURIComponent(JSON.stringify(trip))));
+    url = location.origin + location.pathname + "#trip=" + encodeURIComponent(payload);
+  }
   navigator.clipboard.writeText(url).then(
-    () => toast("Share link copied — send it to your travel crew 🎉"),
+    () => toast(LIVE ? "Live link copied — everyone on it edits the same trip ⚡" : "Snapshot link copied — or hit ⚡ Go live for real-time sharing"),
     () => prompt("Copy this link:", url));
 };
-document.getElementById("btnExport").onclick = () => {
+$("btnExport").onclick = () => {
   const blob = new Blob([JSON.stringify(trip, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = trip.title.replace(/\s+/g, "-").toLowerCase() + ".json";
   a.click();
 };
-document.getElementById("btnImport").onclick = () => document.getElementById("fileImport").click();
-document.getElementById("fileImport").onchange = (e) => {
+$("btnImport").onclick = () => $("fileImport").click();
+$("fileImport").onchange = (e) => {
   const f = e.target.files[0];
   if (!f) return;
+  if (LIVE) { toast("Import works in local mode — open the page without ?trip= first"); return; }
   f.text().then(t => {
-    try { trip = JSON.parse(t); save(); toast("Trip imported"); }
+    try { trip = JSON.parse(t); persistLocal(); toast("Trip imported"); }
     catch (err) { toast("That file isn't a valid trip JSON"); }
   });
 };
-document.getElementById("btnPrint").onclick = () => window.print();
+$("btnPrint").onclick = () => window.print();
+$("btnGoLive").onclick = goLive;
 
 /* ---------- misc wiring ---------- */
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function toast(msg) {
-  const t = document.getElementById("toast");
+  const t = $("toast");
   t.textContent = msg; t.classList.add("show");
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500);
 }
 
-document.getElementById("tripTitle").onchange = (e) => { trip.title = e.target.value; save(); };
-document.getElementById("btnAdd").onclick = handleAdd;
-document.getElementById("addInput").onkeydown = (e) => { if (e.key === "Enter") handleAdd(); };
-document.getElementById("btnAddDay").onclick = () => {
-  trip.days.push({ id: uid(), title: "Day " + (trip.days.length + 1), stops: [] });
-  save();
-};
-document.getElementById("whoName").onclick = () => {
+$("tripTitle").onchange = (e) => setTripTitle(e.target.value);
+$("btnAdd").onclick = handleAdd;
+$("addInput").onkeydown = (e) => { if (e.key === "Enter") handleAdd(); };
+$("btnAddDay").onclick = addDayM;
+$("whoName").onclick = () => {
   const n = prompt("Your name (shows on pins you add):", userName || "");
   if (n !== null) { userName = n.trim(); localStorage.setItem(NAME_KEY, userName); render(); }
 };
 
 /* ---------- boot ---------- */
-trip = loadTrip();
-if (!userName) {
-  const n = prompt("Welcome! What's your name? (shows on pins you add)", "");
-  userName = (n || "").trim();
-  if (userName) localStorage.setItem(NAME_KEY, userName);
+async function boot() {
+  if (!userName) {
+    const n = prompt("Welcome! What's your name? (shows on pins you add)", "");
+    userName = (n || "").trim();
+    if (userName) localStorage.setItem(NAME_KEY, userName);
+  }
+  map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
+  map.on("dragstart zoomstart", () => { map._userMoved = true; });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(map);
+  layerGroup = L.layerGroup().addTo(map);
+
+  if (LIVE) {
+    $("liveBadge").classList.add("on");
+    try {
+      trip = await fetchLiveTrip();
+    } catch (e) {
+      console.warn(e);
+      toast("Couldn't load live trip (" + (e.message || "network error") + ") — showing local copy");
+      trip = loadLocalTrip();
+    }
+    subscribeLive();
+  } else {
+    $("btnGoLive").hidden = false;
+    trip = loadLocalTrip();
+    localStorage.setItem(STORE_KEY, JSON.stringify(trip));
+  }
+  render();
 }
-map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
-map.on("dragstart zoomstart", () => { map._userMoved = true; });
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-}).addTo(map);
-layerGroup = L.layerGroup().addTo(map);
-render();
-localStorage.setItem(STORE_KEY, JSON.stringify(trip));
+boot();
 </script>
 </body>
 </html>

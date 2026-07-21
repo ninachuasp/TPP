@@ -33,30 +33,27 @@ then copy the **full URL from the address bar** (it contains `!3d…!4d…` or `
 and paste that into the app. For whole saved lists, Google Takeout can export
 "Saved Places" as JSON/CSV, which can be imported here with a small converter.
 
-## Architecture (v1: serverless)
+## Architecture
 
-Deliberately a single HTML file:
+Still a single HTML file (plus vendored Leaflet/supabase-js in `vendor/`, so the app
+also works offline), with two modes:
 
-- **State**: one JSON document (`{title, days: [{title, stops: [{name, lat, lng, links, notes, addedBy}]}]}`)
-  persisted to `localStorage`.
-- **Collaboration**: the share button base64-encodes the trip into the URL fragment.
-  Opening a shared link imports that snapshot. Async, link-passing collaboration —
-  like sharing a Google Doc by emailing copies.
-- **Zero dependencies to operate**: host it anywhere static (GitHub Pages, Netlify,
-  Vercel) and it just works.
+- **Local mode** (open `index.html` with no query string): the trip lives in
+  `localStorage`. Share via the URL-snapshot link or Export/Import JSON.
+- **Live mode** (`index.html?trip=<uuid>`): the trip lives in Supabase
+  (`trip_trips` / `trip_days` / `trip_stops` tables). Every edit is written to the
+  database, and a realtime subscription on `postgres_changes` pushes everyone
+  else's edits onto your screen within a second. The **⚡ Go live** button promotes
+  a local trip into a live one and switches the URL.
 
-## Roadmap (v2: real-time multi-user)
+Access model: the trip's unguessable UUID *is* the invite — anyone holding the link
+can read and edit that trip (no accounts). The anon key in the page is a publishable
+key and the Supabase project's schema contains only these trip tables.
 
-When link-passing gets annoying, swap `localStorage` for **Supabase**:
+## Roadmap ideas
 
-1. `trips` + `stops` tables, row-level security keyed on a trip's share token.
-2. Replace `save()` with an upsert; subscribe to `postgres_changes` on the trip's
-   channel so everyone's map updates live.
-3. Magic-link or anonymous auth — the trip URL *is* the invite.
-
-Everything else (parsing, map rendering, UI) carries over unchanged — the state layer
-is the only thing that swaps. Other v2 candidates:
-
+- Crew timeline: travelers with date ranges, so each day shows who's actually there
+- Pin voting (🔥/😐) to settle wishlist debates
+- Driving-time meter per day via OSRM's free routing API
 - oEmbed previews for Instagram/TikTok links (thumbnail cards instead of chips)
-- Driving-time estimates between stops via OSRM's free routing API
-- Voting/reactions on wishlist pins to settle itinerary debates
+- Trip-day companion mode: today's stops, one-tap navigate, ✅ visited pins
