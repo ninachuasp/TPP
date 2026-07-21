@@ -230,7 +230,7 @@
  * ------------------------------------------------------------------ */
 
 const DAY_COLORS = ["#c2410c","#0e7490","#7c3aed","#15803d","#b45309","#be185d","#1d4ed8","#4d7c0f"];
-const STORE_KEY = "tpp.trip.v1";
+const STORE_KEY = "tpp.trip.v2";
 const NAME_KEY = "tpp.username";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -239,31 +239,60 @@ function seedTrip() {
   const mk = (name, lat, lng, links, notes) =>
     ({ id: uid(), name, lat, lng, links: links || [], notes: notes || "", addedBy: "starter" });
   return {
-    title: "Sapporo Road Trip",
+    title: "Sapporo Road Trip · 12–24 Oct",
     days: [
-      { id: uid(), title: "Day 1 — Sapporo city", stops: [
-        mk("Nijo Market", 43.0570, 141.3612, [], "Morning kaisendon run"),
-        mk("Odori Park", 43.0606, 141.3472),
+      { id: uid(), title: "Sun 12 Oct — Sapporo · crew A", stops: [
+        mk("Nijo Market", 43.0570, 141.3612, [], "Land + morning kaisendon run"),
+        mk("Odori Park & TV Tower", 43.0606, 141.3472, [], "Walk it off downtown"),
         mk("Sapporo Beer Garden", 43.0713, 141.3697, [], "Genghis Khan BBQ dinner"),
-        mk("Mt. Moiwa Ropeway", 43.0333, 141.3222, [], "Night view — go after sunset"),
+        mk("Susukino", 43.0553, 141.3536, [], "Nightcap / ramen alley"),
       ]},
-      { id: uid(), title: "Day 2 — Otaru & Yoichi", stops: [
-        mk("Otaru Canal", 43.1985, 140.9959),
-        mk("Sankaku Market", 43.1990, 140.9917, [], "Seafood breakfast"),
-        mk("Nikka Whisky Yoichi Distillery", 43.1912, 140.7852, [], "Book tour ahead"),
-      ]},
-      { id: uid(), title: "Day 3 — Furano & Biei", stops: [
-        mk("Farm Tomita", 43.4178, 142.4270, [], "Lavender fields + melon soft serve"),
-        mk("Shikisai-no-oka", 43.5387, 142.4785),
-        mk("Blue Pond (Aoiike)", 43.4839, 142.6270),
-      ]},
-      { id: uid(), title: "Day 4 — Lake Toya & Noboribetsu", stops: [
-        mk("Lake Toya", 42.6048, 140.8464),
-        mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [], "Onsen stop"),
-      ]},
-      { id: uid(), title: "Ideas / unassigned", stops: [
+      { id: uid(), title: "Mon 13 Oct — Sapporo & Jozankei · crew A", stops: [
+        mk("Hokkaido Shrine", 43.0545, 141.3079, [], "Maruyama Park autumn stroll"),
         mk("Shiroi Koibito Park", 43.0879, 141.2717),
-        mk("Jozankei Onsen", 42.9679, 141.1678),
+        mk("Jozankei Onsen", 42.9679, 141.1678, [], "Peak koyo season — day-use onsen, ~50 min drive"),
+        mk("Mt. Moiwa Ropeway", 43.0333, 141.3222, [], "Night view on the way back"),
+      ]},
+      { id: uid(), title: "Tue 14 Oct — Pickup → Noboribetsu · all 4", stops: [
+        mk("New Chitose Airport", 42.7752, 141.6923, [], "Collect crew B + rental car"),
+        mk("Lake Shikotsu", 42.7600, 141.3400, [], "Lakeside foliage stop, 30 min from airport"),
+        mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [], "Check into onsen ryokan, evening Hell Valley walk"),
+      ]},
+      { id: uid(), title: "Wed 15 Oct — Noboribetsu → Lake Toya · all 4", stops: [
+        mk("Usuzan Ropeway", 42.5430, 140.8280, [], "Volcano + caldera views"),
+        mk("Lake Toya", 42.6048, 140.8464, [], "Lakefront onsen stay — nightly fireworks run to end of Oct"),
+      ]},
+      { id: uid(), title: "Thu 16 Oct — Toya → Shakotan → Otaru · all 4", stops: [
+        mk("Niseko", 42.8048, 140.6874, [], "Coffee stop, Mt Yotei viewpoints"),
+        mk("Cape Kamui", 43.3360, 140.3430, [], "Shakotan-blue cliff walk + uni-don lunch nearby"),
+        mk("Otaru Canal", 43.1985, 140.9959, [], "Evening gaslight stroll — stay Otaru"),
+      ]},
+      { id: uid(), title: "Fri 17 Oct — Otaru → Yoichi → Furano · all 4", stops: [
+        mk("Sankaku Market", 43.1990, 140.9917, [], "Seafood breakfast"),
+        mk("Nikka Whisky Yoichi Distillery", 43.1912, 140.7852, [], "Book tasting ahead"),
+        mk("Ningle Terrace", 43.3187, 142.3819, [], "~3h drive; twilight craft huts — stay Furano"),
+      ]},
+      { id: uid(), title: "Sat 18 Oct — Biei loop → Asahikawa · all 4", stops: [
+        mk("Blue Pond (Aoiike)", 43.4839, 142.6270, [], "Go early to beat tour buses"),
+        mk("Shirahige Falls", 43.4740, 142.6360),
+        mk("Patchwork Road, Biei", 43.6000, 142.4300, [], "Rolling farm hills drive"),
+        mk("Shikisai-no-oka", 43.5387, 142.4785, [], "Autumn flower fields"),
+        mk("Asahikawa Ramen Village", 43.7910, 142.4086, [], "Shoyu ramen dinner — stay Asahikawa"),
+      ]},
+      { id: uid(), title: "Sun 19 Oct — Sounkyo → Sapporo · all 4", stops: [
+        mk("Sounkyo Gorge", 43.7280, 142.9480, [], "Ginga & Ryusei falls, ropeway koyo — or swap for Asahiyama Zoo"),
+        mk("Asahiyama Zoo", 43.7679, 142.4808, [], "Alternative to Sounkyo; then ~2h drive to Sapporo, farewell jingisukan dinner"),
+      ]},
+      { id: uid(), title: "Mon 20 Oct — Farewell · crew A departs", stops: [
+        mk("Tanukikoji Shopping Street", 43.0574, 141.3517, [], "Souvenir run"),
+        mk("New Chitose Airport", 42.7752, 141.6923, [], "Drop car + crew A flies out"),
+      ]},
+      { id: uid(), title: "Tue 21–24 Oct — Crew B solo ideas", stops: [
+        mk("Moerenuma Park", 43.1226, 141.4276, [], "Noguchi-designed park, rent bikes"),
+        mk("Sapporo Beer Museum", 43.0717, 141.3690),
+        mk("Okurayama Ski Jump", 43.0480, 141.2880, [], "City panorama from the jump tower"),
+        mk("Historical Village of Hokkaido", 43.0480, 141.5010, [], "Open-air museum in autumn woods"),
+        mk("Otaru Tenguyama Ropeway", 43.1770, 140.9740, [], "If Otaru deserves a second visit"),
       ]},
     ],
   };
