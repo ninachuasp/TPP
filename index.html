@@ -143,6 +143,20 @@
   .stop .acts button.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
   .stop .acts button.gold { color: #a16207; border-color: #d9b765; background: #fdf6e3; }
   .stop.visited-row .num { background: #ca8a04 !important; }
+  .stop .acts a.navgo {
+    text-decoration: none; border: 1px solid var(--line); border-radius: 20px;
+    font-size: .7rem; padding: 2px 9px; color: var(--muted); font-weight: 600;
+  }
+  .stop .acts a.navgo:hover { color: var(--accent); border-color: var(--accent); }
+  .day-head .chev { border: none; background: none; padding: 0 2px; color: var(--muted); font-size: .8rem; }
+  .day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .today-chip {
+    font-size: .6rem; font-weight: 800; color: #fff; background: var(--accent);
+    border-radius: 20px; padding: 2px 7px; letter-spacing: .06em; flex-shrink: 0;
+  }
+  .stops-count { padding: 8px 12px; font-size: .75rem; color: var(--muted); cursor: pointer; }
+  .stops-count:hover { color: var(--accent); }
+  #syncStatus { font-size: .7rem; color: var(--muted); }
 
   dialog {
     border: none; border-radius: var(--radius); padding: 18px;
@@ -185,7 +199,13 @@
   @media (max-width: 760px) {
     main { flex-direction: column; }
     #sidebar { width: 100%; max-width: none; order: 2; flex: 1; }
-    #map { height: 42vh; flex: none; }
+    #map { height: 38vh; flex: none; }
+    header { padding: 8px 12px; gap: 8px; }
+    header h1 input { width: 100%; }
+    button, .btn { padding: 9px 13px; }
+    .stop { padding: 11px 12px; }
+    .stop .acts button, .stop .acts a.navgo { padding: 5px 13px; font-size: .78rem; }
+    .stop .ops button { padding: 4px 8px; font-size: .9rem; }
   }
 </style>
 </head>
@@ -194,6 +214,7 @@
   <div class="brand"><b>🧭 Detour</b><small>plan the drive together</small></div>
   <h1><input id="tripTitle" value=""></h1>
   <span id="liveBadge" title="Everyone with this link sees changes instantly">● LIVE</span>
+  <span id="syncStatus"></span>
   <span class="who">planning as <b id="whoName" title="click to change your name">…</b></span>
   <span class="spacer"></span>
   <button id="btnGoLive" class="primary" hidden>⚡ Go live</button>
@@ -349,25 +370,57 @@ let trip = null;
 let userName = localStorage.getItem(NAME_KEY) || "";
 
 /* ---------- trip meta: votes + visited ----------
- * Stored per-device for now (localStorage, keyed by trip). Becomes synced
- * the moment votes/visited columns are added to trip_stops. */
+ * If trip_stops has votes/visited columns (SYNC_META, feature-detected at
+ * fetch time), they sync through the database like everything else.
+ * Otherwise they fall back to per-device localStorage. */
+let SYNC_META = false;
 const metaKey = () => "tpp.meta." + (LIVE ? LIVE_TRIP_ID : "local");
 let meta = { votes: {}, visited: {} };
 try { Object.assign(meta, JSON.parse(localStorage.getItem(metaKey()) || "{}")); } catch (e) {}
 function saveMeta() { localStorage.setItem(metaKey(), JSON.stringify(meta)); render(); }
-const voteCount = stop => Object.keys(meta.votes[stop.id] || {}).length;
-const myVote = stop => !!(meta.votes[stop.id] || {})[userName || "anonymous"];
+const stopVotes = stop => (SYNC_META ? stop.votes : meta.votes[stop.id]) || {};
+const voteCount = stop => Object.keys(stopVotes(stop)).length;
+const myVote = stop => !!stopVotes(stop)[userName || "anonymous"];
 function toggleVote(stop) {
   const k = userName || "anonymous";
-  const v = meta.votes[stop.id] = meta.votes[stop.id] || {};
+  const v = { ...stopVotes(stop) };
   if (v[k]) delete v[k]; else v[k] = 1;
-  saveMeta();
+  if (LIVE && SYNC_META) {
+    stop.votes = v; render();
+    dbTry(sb.from("trip_stops").update({ votes: v }).eq("id", stop.id));
+  } else {
+    meta.votes[stop.id] = v; saveMeta();
+  }
 }
-const isVisited = stop => !!meta.visited[stop.id];
+const isVisited = stop => SYNC_META ? !!stop.visited : !!meta.visited[stop.id];
 function toggleVisited(stop) {
-  if (meta.visited[stop.id]) delete meta.visited[stop.id];
-  else meta.visited[stop.id] = true;
-  saveMeta();
+  const next = !isVisited(stop);
+  if (LIVE && SYNC_META) {
+    stop.visited = next; render();
+    dbTry(sb.from("trip_stops").update({ visited: next }).eq("id", stop.id));
+  } else {
+    if (next) meta.visited[stop.id] = true; else delete meta.visited[stop.id];
+    saveMeta();
+  }
+}
+
+/* ---------- today detection (parsed from day titles like "Tue 14 Oct") ---------- */
+const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+function isToday(title) {
+  const m = title.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+  if (!m) return false;
+  const n = new Date();
+  return n.getDate() === +m[1] && n.getMonth() === MONTHS[m[2].toLowerCase()];
+}
+
+/* ---------- collapsed days ---------- */
+const collapseKey = () => "tpp.collapsed." + (LIVE ? LIVE_TRIP_ID : "local");
+let collapsed = new Set();
+try { collapsed = new Set(JSON.parse(localStorage.getItem(collapseKey()) || "[]")); } catch (e) {}
+function toggleCollapse(dayId) {
+  if (collapsed.has(dayId)) collapsed.delete(dayId); else collapsed.add(dayId);
+  localStorage.setItem(collapseKey(), JSON.stringify([...collapsed]));
+  render();
 }
 
 /* ---------- drive-time estimate ---------- */
@@ -427,6 +480,9 @@ function loadLocalTrip() {
 }
 
 /* ---------- live data layer (Supabase) ---------- */
+const cacheKey = () => "tpp.cache." + LIVE_TRIP_ID;
+function setSync(text) { $("syncStatus").textContent = text; }
+
 async function fetchLiveTrip() {
   const [t, d, s] = await Promise.all([
     sb.from("trip_trips").select("*").eq("id", LIVE_TRIP_ID).single(),
@@ -434,14 +490,19 @@ async function fetchLiveTrip() {
     sb.from("trip_stops").select("*").eq("trip_id", LIVE_TRIP_ID).order("position").order("id"),
   ]);
   if (t.error) throw t.error;
+  SYNC_META = (s.data || []).length > 0 && ("votes" in s.data[0]);
   const days = (d.data || []).map(day => ({
     id: day.id, title: day.title,
     stops: (s.data || []).filter(x => x.day_id === day.id).map(x => ({
       id: x.id, name: x.name, lat: x.lat, lng: x.lng,
       links: x.links || [], notes: x.notes || "", addedBy: x.added_by || "",
+      votes: x.votes || {}, visited: !!x.visited,
     })),
   }));
-  return { id: t.data.id, title: t.data.title, days };
+  const result = { id: t.data.id, title: t.data.title, days };
+  try { localStorage.setItem(cacheKey(), JSON.stringify(result)); } catch (e) {}
+  setSync("synced " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  return result;
 }
 
 let refreshTimer = null;
@@ -467,7 +528,7 @@ function subscribeLive() {
 
 async function dbTry(promise, okMsg) {
   const { error } = await promise;
-  if (error) { console.warn(error); toast("Sync failed: " + error.message); return false; }
+  if (error) { console.warn(error); toast("Sync failed: " + error.message); setSync("⚠ offline — retrying on next change"); return false; }
   if (okMsg) toast(okMsg);
   scheduleRefresh();
   return true;
@@ -684,15 +745,23 @@ function render() {
   container.innerHTML = "";
   trip.days.forEach((day, di) => {
     const color = dayColor(di);
+    const today = isToday(day.title);
+    const isCollapsed = collapsed.has(day.id) && !today;
     const el = document.createElement("div");
-    el.className = "day";
+    el.className = "day" + (today ? " today" : "");
     const head = document.createElement("div");
     head.className = "day-head";
-    head.innerHTML = `<span class="day-dot" style="background:${color}"></span>`;
+    const chev = document.createElement("button");
+    chev.className = "chev"; chev.textContent = isCollapsed ? "▸" : "▾";
+    chev.title = isCollapsed ? "Expand day" : "Collapse day";
+    chev.onclick = () => toggleCollapse(day.id);
+    head.appendChild(chev);
+    head.insertAdjacentHTML("beforeend", `<span class="day-dot" style="background:${color}"></span>`);
     const titleInput = document.createElement("input");
     titleInput.value = day.title;
     titleInput.onchange = () => renameDay(day, titleInput.value);
     head.appendChild(titleInput);
+    if (today) head.insertAdjacentHTML("beforeend", `<span class="today-chip">TODAY</span>`);
     const dots = crewDots(day.title);
     if (dots) head.appendChild(dots);
     const drive = driveBadge(day);
@@ -705,6 +774,16 @@ function render() {
     };
     head.appendChild(delBtn);
     el.appendChild(head);
+
+    if (isCollapsed) {
+      const c = document.createElement("div");
+      c.className = "stops-count";
+      c.textContent = `▸ ${day.stops.length} stop${day.stops.length === 1 ? "" : "s"}`;
+      c.onclick = () => toggleCollapse(day.id);
+      el.appendChild(c);
+      container.appendChild(el);
+      return;
+    }
 
     if (!day.stops.length) {
       const e = document.createElement("div");
@@ -728,6 +807,7 @@ function render() {
           <div class="acts">
             <button data-op="vote" class="${myVote(stop) ? "on" : ""}" title="Vote this stop up">🔥${nVotes ? " " + nVotes : ""}</button>
             <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
+            <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Navigate here in Google Maps">🧭 Go</a>
           </div>
         </div>
         <div class="ops">
@@ -896,12 +976,22 @@ async function boot() {
 
   if (LIVE) {
     $("liveBadge").classList.add("on");
+    // paint the cached copy instantly, then reconcile with the network
+    const cached = localStorage.getItem(cacheKey());
+    if (cached) {
+      try { trip = JSON.parse(cached); render(); setSync("syncing…"); } catch (e) {}
+    }
     try {
       trip = await fetchLiveTrip();
     } catch (e) {
       console.warn(e);
-      toast("Couldn't load live trip (" + (e.message || "network error") + ") — showing local copy");
-      trip = loadLocalTrip();
+      if (trip) {
+        setSync("offline — showing last synced copy");
+        toast("No connection — showing the last synced copy; edits will sync when you're back online");
+      } else {
+        toast("Couldn't load live trip (" + (e.message || "network error") + ") — showing local copy");
+        trip = loadLocalTrip();
+      }
     }
     subscribeLive();
   } else {

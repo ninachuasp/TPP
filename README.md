@@ -53,12 +53,21 @@ key and the Supabase project's schema contains only these trip tables.
 
 ## Product features (beyond the basics)
 
-- **🔥 Voting** on stops and **✓ visited** tracking (pins turn gold) — currently
-  per-device via localStorage; syncing them needs `votes jsonb` / `visited boolean`
-  columns on `trip_stops` plus a `trip_travelers` table (one small migration).
+- **🔥 Voting** on stops and **✓ visited** tracking (pins turn gold). The client
+  feature-detects `votes` / `visited` columns on `trip_stops`: if present they sync
+  through the database like everything else; if absent they fall back to per-device
+  localStorage. To enable sync, run once in the Supabase SQL editor:
+  ```sql
+  alter table trip_stops add column votes jsonb not null default '{}';
+  alter table trip_stops add column visited boolean not null default false;
+  ```
+- **🧭 Go** — one-tap Google Maps navigation to any stop, for use on the road.
 - **Drive-time budgets** per day — straight-line distance × road factor at rural
   average speed; badges turn amber past 3 h, red past 4.5 h.
 - **Crew-aware days** — presence dots derived from day titles (crew A / crew B / all 4).
+- **Collapsible days** with a **TODAY** highlight (parsed from day titles) during the trip.
+- **Offline-first live mode** — the last synced copy paints instantly on load and
+  whenever there's no signal; a status chip shows synced / syncing / offline.
 
 ## Roadmap ideas
 
