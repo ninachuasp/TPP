@@ -62,8 +62,16 @@ key and the Supabase project's schema contains only these trip tables.
   alter table trip_stops add column visited boolean not null default false;
   ```
 - **🧭 Go** — one-tap Google Maps navigation to any stop, for use on the road.
-- **Drive-time budgets** per day — straight-line distance × road factor at rural
-  average speed; badges turn amber past 3 h, red past 4.5 h.
+- **Real road routing** — day routes and drive times come from the public OSRM
+  server (cached per route; badge shows exact time + km, and the map draws the
+  actual road geometry). Offline or if OSRM is unreachable, it falls back to a
+  straight-line estimate (marked with ≈) and dashed lines. Badges turn amber
+  past 3 h, red past 4.5 h.
+- **Google Takeout import** — the ⬆ Import button accepts, besides trip JSON:
+  Takeout's `Saved Places.json` (exact pin coordinates) and saved-list CSVs
+  (`Title,Note,URL` — coordinates parsed from the URL when present, otherwise
+  geocoded by name via Nominatim at ~1/s). Imports land in a "📥 Imported ideas"
+  day, and in live mode they insert into the shared database.
 - **Crew-aware days** — presence dots derived from day titles (crew A / crew B / all 4).
 - **Collapsible days** with a **TODAY** highlight (parsed from day titles) during the trip.
 - **Offline-first live mode** — the last synced copy paints instantly on load and

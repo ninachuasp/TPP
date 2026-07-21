@@ -222,7 +222,7 @@
   <button id="btnExport">⬇ Export JSON</button>
   <button id="btnImport">⬆ Import</button>
   <button id="btnPrint">🖨 Itinerary</button>
-  <input type="file" id="fileImport" accept=".json" hidden>
+  <input type="file" id="fileImport" accept=".json,.csv" hidden>
 </header>
 
 <main>
@@ -437,15 +437,51 @@ function driveMinutes(day) {
   // straight-line distance × road-winding factor, at rural average speed
   return Math.round(km * 1.3 / 55 * 60);
 }
+/* Real road routing via the public OSRM server, cached per day-route;
+ * falls back to the haversine estimate offline. */
+let osrmCache = {};
+try { osrmCache = JSON.parse(localStorage.getItem("tpp.osrm") || "{}"); } catch (e) {}
+const osrmPending = new Set(), osrmFailed = new Set();
+const routableDay = day => day.stops.length >= 2 && !/idea|unassigned|wish|solo/i.test(day.title);
+const dayRouteKey = day => day.stops.map(s => s.lat.toFixed(4) + "," + s.lng.toFixed(4)).join(";");
+const dayRoute = day => routableDay(day) ? osrmCache[dayRouteKey(day)] : null;
+async function refreshRoutes() {
+  let updated = false;
+  for (const day of trip.days) {
+    if (!routableDay(day)) continue;
+    const key = dayRouteKey(day);
+    if (osrmCache[key] || osrmPending.has(key) || osrmFailed.has(key)) continue;
+    osrmPending.add(key);
+    try {
+      const coords = day.stops.map(s => s.lng + "," + s.lat).join(";");
+      const res = await fetch("https://router.project-osrm.org/route/v1/driving/" + coords + "?overview=simplified&geometries=geojson");
+      const j = await res.json();
+      if (j.code === "Ok" && j.routes && j.routes[0]) {
+        osrmCache[key] = {
+          minutes: Math.round(j.routes[0].duration / 60),
+          km: Math.round(j.routes[0].distance / 1000),
+          line: j.routes[0].geometry.coordinates.map(c => [c[1], c[0]]),
+        };
+        updated = true;
+      } else osrmFailed.add(key);
+    } catch (e) { osrmFailed.add(key); }
+    osrmPending.delete(key);
+  }
+  if (updated) {
+    try { localStorage.setItem("tpp.osrm", JSON.stringify(osrmCache)); } catch (e) {}
+    render();
+  }
+}
 function driveBadge(day) {
-  if (day.stops.length < 2 || /idea|unassigned|wish|solo/i.test(day.title)) return null;
-  const m = driveMinutes(day);
+  if (!routableDay(day)) return null;
+  const r = dayRoute(day);
+  const m = r ? r.minutes : driveMinutes(day);
   if (m < 10) return null;
   const h = Math.floor(m / 60), mm = m % 60;
   const el = document.createElement("span");
   el.className = "drive-badge" + (m > 270 ? " hot" : m > 180 ? " warn" : "");
-  el.textContent = "🚗 ≈" + (h ? h + "h " : "") + (mm ? mm + "m" : "");
-  el.title = "Estimated driving time between stops";
+  el.textContent = "🚗 " + (r ? "" : "≈") + (h ? h + "h " : "") + (mm ? mm + "m" : "") + (r ? " · " + r.km + " km" : "");
+  el.title = r ? "Driving time via roads" : "Estimated driving time between stops";
   return el;
 }
 
@@ -832,6 +868,7 @@ function render() {
   });
 
   renderMap();
+  refreshRoutes();
 }
 
 function renderMap() {
@@ -858,7 +895,9 @@ function renderMap() {
       allPts.push([stop.lat, stop.lng]);
     });
     if (pts.length > 1 && !/idea|unassigned|wish|solo/i.test(day.title)) {
-      layerGroup.addLayer(L.polyline(pts, { color, weight: 3, opacity: .55, dashArray: "6 8" }));
+      const r = dayRoute(day);
+      if (r && r.line) layerGroup.addLayer(L.polyline(r.line, { color, weight: 3, opacity: .6 }));
+      else layerGroup.addLayer(L.polyline(pts, { color, weight: 3, opacity: .55, dashArray: "6 8" }));
     }
   });
   if (allPts.length && !map._userMoved) map.fitBounds(allPts, { padding: [40, 40] });
@@ -932,13 +971,114 @@ $("btnExport").onclick = () => {
 $("btnImport").onclick = () => $("fileImport").click();
 $("fileImport").onchange = (e) => {
   const f = e.target.files[0];
-  if (!f) return;
-  if (LIVE) { toast("Import works in local mode — open the page without ?trip= first"); return; }
-  f.text().then(t => {
-    try { trip = JSON.parse(t); persistLocal(); toast("Trip imported"); }
-    catch (err) { toast("That file isn't a valid trip JSON"); }
-  });
+  e.target.value = "";
+  if (f) handleImportFile(f);
 };
+
+/* ---------- import: trip JSON, or Google Takeout Saved Places ---------- */
+async function handleImportFile(f) {
+  const text = await f.text();
+  if (/\.csv$/i.test(f.name)) return importTakeout(parseTakeoutCsv(text), f.name);
+  try {
+    const j = JSON.parse(text);
+    if (j && j.type === "FeatureCollection") return importTakeout(parseTakeoutGeoJson(j), f.name);
+    if (j && j.days) {
+      if (LIVE) { toast("Full-trip JSON import works in local mode — open the page without ?trip= first"); return; }
+      trip = j; persistLocal(); toast("Trip imported"); return;
+    }
+  } catch (err) {}
+  toast("Unrecognized file — expected trip JSON or Google Takeout Saved Places (.json/.csv)");
+}
+
+function parseTakeoutGeoJson(j) {
+  return (j.features || []).map(ft => {
+    const p = ft.properties || {};
+    const name = (p.location && p.location.name) || p.Title || p.title || p.name || "Saved place";
+    const url = p.google_maps_url || p.Google_Maps_URL || "";
+    let lat = null, lng = null;
+    if (ft.geometry && Array.isArray(ft.geometry.coordinates)) {
+      [lng, lat] = ft.geometry.coordinates;
+    }
+    if ((lat == null || lng == null) && url) {
+      const c = parseGoogleMapsUrl(url);
+      if (c) { lat = c.lat; lng = c.lng; }
+    }
+    return { name, lat, lng, links: url ? [url] : [], notes: p.Comment || (p.location && p.location.address) || "" };
+  });
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [], cell = "", inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') inQ = false;
+      else cell += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ",") { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += ch;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function parseTakeoutCsv(text) {
+  const rows = parseCsvRows(text);
+  const head = rows.shift() || [];
+  const iT = head.indexOf("Title"), iN = head.indexOf("Note"), iU = head.indexOf("URL");
+  return rows.filter(r => r.some(c => c && c.trim())).map(r => {
+    const url = iU >= 0 ? (r[iU] || "") : "";
+    const c = url ? parseGoogleMapsUrl(url) : null;
+    return {
+      name: (iT >= 0 && r[iT]) || "Saved place",
+      lat: c ? c.lat : null, lng: c ? c.lng : null,
+      links: url ? [url] : [], notes: (iN >= 0 && r[iN]) || "",
+    };
+  });
+}
+
+async function importTakeout(items, filename) {
+  if (!items.length) { toast("No places found in " + filename); return; }
+  const missing = items.filter(i => i.lat == null || i.lng == null);
+  if (missing.length) toast(`Looking up ${missing.length} place(s) without coordinates — this takes ~1s each…`);
+  for (const it of missing) {
+    try {
+      const res = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(it.name));
+      const r = (await res.json())[0];
+      if (r) { it.lat = +r.lat; it.lng = +r.lon; }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 1100));
+  }
+  const ok = items.filter(i => i.lat != null && i.lng != null);
+  const skipped = items.length - ok.length;
+  if (!ok.length) { toast("Couldn't place any of those — no coordinates found"); return; }
+  let day = trip.days.find(d => /imported/i.test(d.title));
+  if (LIVE) {
+    if (!day) {
+      const d = await sb.from("trip_days").insert({ trip_id: LIVE_TRIP_ID, title: "📥 Imported ideas", position: trip.days.length }).select().single();
+      if (d.error) { toast("Import failed: " + d.error.message); return; }
+      day = { id: d.data.id, title: d.data.title, stops: [] };
+      trip.days.push(day);
+    }
+    const rows = ok.map((i, n) => ({
+      trip_id: LIVE_TRIP_ID, day_id: day.id, name: i.name, lat: i.lat, lng: i.lng,
+      links: i.links, notes: i.notes, added_by: userName, position: day.stops.length + n,
+    }));
+    const r = await sb.from("trip_stops").insert(rows);
+    if (r.error) { toast("Import failed: " + r.error.message); return; }
+    scheduleRefresh();
+  } else {
+    if (!day) { day = { id: uid(), title: "📥 Imported ideas", stops: [] }; trip.days.push(day); }
+    ok.forEach(i => day.stops.push({ id: uid(), name: i.name, lat: i.lat, lng: i.lng, links: i.links, notes: i.notes, addedBy: userName }));
+    persistLocal();
+  }
+  toast(`Imported ${ok.length} place(s) into "${day.title}"` + (skipped ? ` · ${skipped} skipped (no location found)` : ""));
+}
 $("btnPrint").onclick = () => window.print();
 $("btnGoLive").onclick = goLive;
 
