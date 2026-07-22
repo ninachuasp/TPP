@@ -194,6 +194,8 @@
   .stay-same { color: var(--muted); font-size: .72rem; }
   .stay-edit { margin-left: auto; font-size: .68rem; font-weight: 700; color: var(--accent); opacity: .7; text-transform: uppercase; letter-spacing: .06em; }
   .day-stay:hover .stay-edit { opacity: 1; }
+  a.stay-link { color: var(--accent); text-decoration: none; }
+  a.stay-link:hover { text-decoration: underline; }
 
   /* branded pin-mascot glyph, reusable */
   .pinmark { display: inline-block; vertical-align: middle; }
@@ -554,6 +556,21 @@
   </form>
 </dialog>
 
+<dialog id="stayDialog">
+  <h3>🛏 Tonight's stay</h3>
+  <form method="dialog" id="stayForm">
+    <label>Accommodation</label>
+    <input id="stayName" placeholder="e.g. Noboribetsu Grand Hotel" autocomplete="off">
+    <label>Booking link <span style="font-weight:400;color:var(--muted)">(optional — makes the name tappable)</span></label>
+    <input id="stayUrl" placeholder="https://booking.com/… or the hotel site" autocomplete="off">
+    <div class="actions">
+      <button type="button" id="btnStaySame" style="margin-right:auto">Same as last night</button>
+      <button type="button" id="btnStayCancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="profileDialog">
   <h3>Your profile</h3>
   <form method="dialog" id="profileForm">
@@ -799,13 +816,28 @@ function prevLodging(day) {
   }
   return "";
 }
-function editLodging(day) {
-  const prev = prevLodging(day);
-  const cur = dayLodging(day);
-  const v = prompt("🛏 Where are you staying tonight?" + (prev ? `\n(last night: ${prev} — press OK to keep the same)` : ""),
-    cur || prev || "");
-  if (v === null) return;
-  setDayLodging(day, v.trim());
+/* Lodging is stored as "name" or "name\turl" in the one text field. */
+function parseLodging(raw) {
+  if (!raw) return { name: "", url: "" };
+  const i = raw.indexOf("\t");
+  return i < 0 ? { name: raw, url: "" } : { name: raw.slice(0, i), url: raw.slice(i + 1) };
+}
+function packLodging(name, url) {
+  name = (name || "").trim(); url = (url || "").trim();
+  if (!name) return "";
+  return url ? name + "\t" + url : name;
+}
+let editingStay = null;
+function openStay(day) {
+  editingStay = day;
+  const { name, url } = parseLodging(dayLodging(day));
+  const prevRaw = prevLodging(day);
+  const prev = parseLodging(prevRaw);
+  if (name) { $("stayName").value = name; $("stayUrl").value = url; }
+  else { $("stayName").value = prev.name; $("stayUrl").value = prev.url; }  // pre-fill last night's
+  $("btnStaySame").style.display = prevRaw ? "" : "none";
+  $("btnStaySame").onclick = () => { $("stayName").value = prev.name; $("stayUrl").value = prev.url; };
+  $("stayDialog").showModal();
 }
 
 /* ---------- weather (Open-Meteo, free & keyless, 16-day horizon) ---------- */
@@ -1783,14 +1815,17 @@ function render() {
     if (!excludedDay(day)) {
       const stay = document.createElement("div");
       stay.className = "day-stay";
-      const val = dayLodging(day);
-      const same = val && val === prevLodging(day);
-      stay.innerHTML = val
-        ? `<span class="stay-ico">🛏</span><span class="stay-name">${esc(val)}</span>` +
+      const raw = dayLodging(day);
+      const { name, url } = parseLodging(raw);
+      const same = raw && raw === prevLodging(day);
+      stay.innerHTML = name
+        ? `<span class="stay-ico">🛏</span>` +
+          (url ? `<a class="stay-name stay-link" href="${esc(url)}" target="_blank" rel="noopener">${esc(name)} 🔗</a>`
+               : `<span class="stay-name">${esc(name)}</span>`) +
           (same ? `<span class="stay-same">· same as last night</span>` : "") +
           `<span class="stay-edit">edit</span>`
         : `<span class="stay-ico">🛏</span><span class="stay-empty">＋ Add tonight's stay</span>`;
-      stay.onclick = () => editLodging(day);
+      stay.onclick = (ev) => { if (ev.target.closest("a")) return; openStay(day); };
       el.appendChild(stay);
     }
     container.appendChild(el);
@@ -1908,7 +1943,7 @@ function renderQuest() {
     const mins = routableDay(b.day, b.di) ? (r ? r.minutes : driveMinutes(b.di)) : 0;
     const driveTxt = mins >= 10 ? `${r ? "" : "≈"}${Math.floor(mins / 60) ? Math.floor(mins / 60) + " H " : ""}${mins % 60 ? mins % 60 + " MIN" : ""} DRIVE` : "";
     const w = dayWeather(b.day);
-    const lodge = dayLodging(b.day);
+    const lodge = parseLodging(dayLodging(b.day)).name;
     const subTxt = [w ? `${WMO(w.code)} ${w.max}° / ${w.min}°` : "", driveTxt,
       lodge ? "🛏 " + lodge : ""].filter(Boolean).join("   ·   ");
     out += `<g>
@@ -2264,6 +2299,10 @@ $("btnAdd").onclick = handleAdd;
 $("addInput").onkeydown = (e) => { if (e.key === "Enter") handleAdd(); };
 $("btnAddDay").onclick = addDayM;
 $("whoName").onclick = openProfile;
+$("btnStayCancel").onclick = () => $("stayDialog").close();
+$("stayForm").onsubmit = () => {
+  if (editingStay) setDayLodging(editingStay, packLodging($("stayName").value, $("stayUrl").value));
+};
 $("btnProfileCancel").onclick = () => $("profileDialog").close();
 $("profileForm").onsubmit = () => {
   const newName = $("profileName").value.trim();
