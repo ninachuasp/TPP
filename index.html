@@ -22,6 +22,8 @@
     --accent-soft: #fff1e8;
     --live: #15803d;
     --radius: 12px;
+    /* hand-drawn marker stack — system fonts, no network, wide device coverage */
+    --hand: "Bradley Hand", "Bradley Hand ITC", "Marker Felt", "Chalkboard SE", "Comic Sans MS", "Ink Free", "Segoe Print", cursive;
     font-size: 15px;
   }
   /* ---- UI skins: token overrides picked with the 🎨 button ---- */
@@ -95,8 +97,8 @@
     box-shadow: 0 1px 2px rgba(60,45,20,.04), 0 12px 32px -22px rgba(60,45,20,.35);
   }
   .add-box h2 {
-    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-    font-size: .95rem; margin-bottom: 8px;
+    font-family: var(--hand);
+    font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; color: var(--ink);
   }
   .add-box .row { display: flex; gap: 6px; margin-bottom: 6px; }
   .add-box input, .add-box select, .add-box textarea {
@@ -132,8 +134,9 @@
   }
   .day-botrow .crew-ava { margin-left: auto; }
   .day-index {
-    font-size: .58rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
-    color: #fff; border-radius: 20px; padding: 2px 8px; flex-shrink: 0;
+    font-family: var(--hand); font-size: .72rem; font-weight: 700; letter-spacing: .02em;
+    color: #fff; border-radius: 14px 8px 15px 7px / 7px 14px 8px 15px;
+    padding: 1px 9px; flex-shrink: 0; transform: rotate(-3deg);
   }
   .day-title-main {
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
@@ -180,7 +183,7 @@
     border: none; background: none; padding: 1px 4px; font-size: .75rem; color: var(--muted);
   }
   .stop .ops button:hover { color: var(--accent); }
-  .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
+  .empty-day { padding: 10px 12px; font-family: var(--hand); font-size: .95rem; color: var(--muted); }
   .day-stay {
     display: flex; align-items: center; gap: 7px; cursor: pointer;
     padding: 9px 12px; border-top: 1px dashed var(--line);
@@ -200,14 +203,18 @@
   /* branded pin-mascot glyph, reusable */
   .pinmark { display: inline-block; vertical-align: middle; }
   .brand-footer {
-    text-align: center; padding: 18px 12px 6px; color: var(--muted);
+    text-align: center; padding: 22px 12px 8px; color: var(--muted); position: relative;
   }
-  .brand-footer .pinmark { height: 34px; opacity: .9; }
+  .brand-footer .pinmark { height: 38px; opacity: .95; transform: rotate(-6deg); }
   .brand-footer .bf-name {
-    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-    font-weight: 700; font-size: 1rem; color: var(--ink); margin-top: 4px;
+    font-family: var(--hand); font-weight: 700; font-size: 1.5rem; color: var(--ink); margin-top: 6px;
+    transform: rotate(-1.5deg);
   }
-  .brand-footer .bf-tag { font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; margin-top: 1px; }
+  .brand-footer .bf-tag {
+    font-family: var(--hand); font-size: .92rem; color: var(--accent); margin-top: 2px;
+    transform: rotate(1deg);
+  }
+  .brand-footer .bf-spark { position: absolute; color: var(--accent); opacity: .55; font-size: 1rem; }
   .add-box h2 .pinmark { height: 17px; margin-right: 1px; }
   .map-brand {
     position: absolute; bottom: 20px; left: 10px; z-index: 500;
@@ -218,14 +225,23 @@
   }
   .map-brand .pinmark { height: 18px; }
   .map-brand b {
-    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-    font-size: .9rem; color: var(--ink);
+    font-family: var(--hand); font-weight: 700;
+    font-size: 1rem; color: var(--ink);
   }
   body.night .map-brand { background: #1c2130; border-color: #313a4e; }
   body.night .map-brand b { color: #e8e8ef; }
 
   .brand { display: flex; align-items: center; gap: 11px; }
   .brand .logo { height: 33px; width: auto; display: block; }
+  /* ---- hand-drawn personality accents ---- */
+  .hand { font-family: var(--hand); }
+  .sticker { display: inline-block; transform: rotate(-2.5deg); }
+  .doodle { color: var(--accent); opacity: .8; }
+  /* wonky marker frame */
+  .rough {
+    border: 2px solid var(--accent);
+    border-radius: 240px 14px 220px 18px / 18px 210px 16px 240px;
+  }
   @keyframes wiggle {
     0%, 100% { transform: rotate(9deg); }
     30% { transform: rotate(-4deg); }
@@ -237,8 +253,8 @@
   .tripometer { transform: rotate(-1deg); }
   @media (prefers-reduced-motion: reduce) { .brand:hover .logo-pin { animation: none; } }
   .brand small {
-    font-size: .62rem; font-weight: 600; color: var(--muted);
-    letter-spacing: .09em; text-transform: uppercase; padding-top: 8px;
+    font-family: var(--hand); font-size: .82rem; font-weight: 600; color: var(--accent);
+    transform: rotate(-1.5deg); transform-origin: left; padding-top: 6px;
   }
   .crew-ava { display: inline-flex; align-items: center; flex-shrink: 0; }
   .crew-ava i {
@@ -272,8 +288,9 @@
   .day-head .chev { border: none; background: none; padding: 0 2px; color: var(--muted); font-size: .8rem; }
   .day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .today-chip {
-    font-size: .6rem; font-weight: 800; color: #fff; background: var(--accent);
-    border-radius: 20px; padding: 2px 7px; letter-spacing: .06em; flex-shrink: 0;
+    font-family: var(--hand); font-size: .72rem; font-weight: 700; color: #fff; background: var(--accent);
+    border-radius: 14px 8px 15px 7px / 7px 14px 8px 15px; padding: 1px 9px; flex-shrink: 0;
+    transform: rotate(2deg);
   }
   .stops-count { padding: 8px 12px; font-size: .75rem; color: var(--muted); cursor: pointer; }
   .stops-count:hover { color: var(--accent); }
@@ -356,7 +373,7 @@
     width: min(480px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.25);
   }
   dialog::backdrop { background: rgba(43,38,32,.45); }
-  dialog h3 { margin-bottom: 10px; font-size: 1rem; }
+  dialog h3 { font-family: var(--hand); margin-bottom: 10px; font-size: 1.3rem; color: var(--ink); }
   dialog label { font-size: .78rem; font-weight: 600; display: block; margin: 10px 0 4px; }
   dialog input, dialog select, dialog textarea {
     font: inherit; font-size: .85rem; width: 100%;
@@ -501,8 +518,11 @@
     <div id="days"></div>
     <button id="btnAddDay" style="width:100%">＋ Add a day</button>
     <div class="brand-footer">
+      <span class="bf-spark" style="top:16px;left:30%">✦</span>
+      <span class="bf-spark" style="top:40px;right:28%;font-size:.8rem">✧</span>
+      <span class="bf-spark" style="bottom:18px;left:34%;font-size:.75rem">✦</span>
       <span id="footerMark"></span>
-      <div class="bf-name">Plonk</div>
+      <div class="bf-name">Plonk!</div>
       <div class="bf-tag">friends plonk, we plan</div>
     </div>
   </div>
