@@ -218,6 +218,16 @@
   .stops-count { padding: 8px 12px; font-size: .75rem; color: var(--muted); cursor: pointer; }
   .stops-count:hover { color: var(--accent); }
   #syncStatus { font-size: .7rem; color: var(--muted); }
+  #avatarGrid {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 2px;
+  }
+  .ava-choice {
+    font-size: 1.25rem; padding: 5px 0; border-radius: 10px; line-height: 1;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer;
+  }
+  .ava-choice:hover { border-color: var(--accent); }
+  .ava-choice.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
+  @media (max-width: 760px) { #avatarGrid { grid-template-columns: repeat(6, 1fr); } }
   .tripometer {
     font-size: .72rem; font-weight: 700; color: var(--accent);
     background: var(--accent-soft); border-radius: 20px; padding: 3px 10px;
@@ -475,6 +485,20 @@
       <button type="button" id="btnDeleteStop" style="margin-right:auto;color:#b91c1c">Delete stop</button>
       <button type="button" id="btnCancelEdit">Cancel</button>
       <button type="submit" class="primary" id="btnSaveEdit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="profileDialog">
+  <h3>Your profile</h3>
+  <form method="dialog" id="profileForm">
+    <label>Name <span style="font-weight:400;color:var(--muted)">(shows on pins you add)</span></label>
+    <input id="profileName" placeholder="e.g. Nina" autocomplete="off">
+    <label>Your emoji</label>
+    <div id="avatarGrid"></div>
+    <div class="actions">
+      <button type="button" id="btnProfileCancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
     </div>
   </form>
 </dialog>
@@ -851,14 +875,62 @@ function crewDots(title) {
 
 /* ---------- fun pack: avatars, trip-ometer, confetti, roulette ---------- */
 const AVATARS = ["🦊", "🐻", "🐧", "🦉", "🐯", "🦌", "🐙", "🐬", "🦜", "🐢"];
+/* Starter avatars for the crew; each person can change theirs in Profile. */
 const AVATAR_FIXED = { derek: "🐻", sean: "🦊", nina: "🐧", seth: "🦉" };
+/* Chosen avatars: synced on trip_trips.avatars when that column exists,
+ * else a per-device map. Keyed by lowercased name. */
+let AVA_SYNC = false;
+const avatarsKey = () => "tpp.avatars." + (LIVE ? LIVE_TRIP_ID : "local");
+let localAvatars = {};
+try { localAvatars = JSON.parse(localStorage.getItem(avatarsKey()) || "{}"); } catch (e) {}
+const chosenAvatars = () => (AVA_SYNC && trip && trip.avatars) ? trip.avatars : localAvatars;
 function avatar(name) {
   if (!name) return "";
-  const fixed = AVATAR_FIXED[name.trim().toLowerCase()];
-  if (fixed) return fixed;
+  const key = name.trim().toLowerCase();
+  const chosen = chosenAvatars()[key];
+  if (chosen) return chosen;
+  if (AVATAR_FIXED[key]) return AVATAR_FIXED[key];
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return AVATARS[h % AVATARS.length];
+}
+function setAvatar(name, emoji) {
+  const key = name.trim().toLowerCase();
+  if (!key) return;
+  if (LIVE && AVA_SYNC) {
+    const map = { ...(trip.avatars || {}) };
+    map[key] = emoji; trip.avatars = map; render();
+    dbTry(sb.from("trip_trips").update({ avatars: map }).eq("id", LIVE_TRIP_ID));
+  } else {
+    localAvatars[key] = emoji;
+    localStorage.setItem(avatarsKey(), JSON.stringify(localAvatars));
+    render();
+  }
+}
+
+const AVATAR_CHOICES = [
+  "🦊","🐻","🐧","🦉","🐯","🦌","🐙","🐬","🦜","🐢","🐰","🐨",
+  "🐼","🦁","🐱","🐶","🦭","🦩","🦆","🐝","🦄","🐲","👾","🤖",
+  "🍜","🍣","🍥","🍁","🗻","⛩️","🎒","📸","☕","🍺","🚗","✈️",
+];
+function openProfile() {
+  $("profileName").value = userName || "";
+  const grid = $("avatarGrid");
+  const current = avatar(userName) || "🦊";
+  grid.innerHTML = "";
+  AVATAR_CHOICES.forEach(e => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = e;
+    b.className = "ava-choice" + (e === current ? " on" : "");
+    b.onclick = () => {
+      grid.querySelectorAll(".ava-choice").forEach(x => x.classList.remove("on"));
+      b.classList.add("on");
+      grid.dataset.pick = e;
+    };
+    grid.appendChild(b);
+  });
+  grid.dataset.pick = current;
+  $("profileDialog").showModal();
 }
 
 function tripDates() {
@@ -1035,6 +1107,7 @@ async function fetchLiveTrip() {
   if (t.error) throw t.error;
   SYNC_META = (s.data || []).length > 0 && ("votes" in s.data[0]);
   DATE_SYNC = (d.data || []).length > 0 && ("date" in d.data[0]);
+  AVA_SYNC = ("avatars" in t.data);
   const days = (d.data || []).map(day => ({
     id: day.id, title: day.title, date: day.date || null,
     stops: (s.data || []).filter(x => x.day_id === day.id).map(x => ({
@@ -1043,7 +1116,7 @@ async function fetchLiveTrip() {
       votes: x.votes || {}, visited: !!x.visited,
     })),
   }));
-  const result = { id: t.data.id, title: t.data.title, days };
+  const result = { id: t.data.id, title: t.data.title, days, avatars: t.data.avatars || null };
   try { localStorage.setItem(cacheKey(), JSON.stringify(result)); } catch (e) {}
   setSync("synced " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
   return result;
@@ -1414,7 +1487,7 @@ function dayColor(i) { return DAY_COLORS[i % DAY_COLORS.length]; }
 
 function render() {
   $("tripTitle").value = trip.title;
-  $("whoName").textContent = userName ? avatar(userName) + " " + userName : "anonymous";
+  $("whoName").textContent = userName ? avatar(userName) + " " + userName : "set name & emoji";
 
   const daySel = $("addDay");
   const prevSel = daySel.value;
@@ -2007,9 +2080,14 @@ $("tripTitle").onchange = (e) => setTripTitle(e.target.value);
 $("btnAdd").onclick = handleAdd;
 $("addInput").onkeydown = (e) => { if (e.key === "Enter") handleAdd(); };
 $("btnAddDay").onclick = addDayM;
-$("whoName").onclick = () => {
-  const n = prompt("Your name (shows on pins you add):", userName || "");
-  if (n !== null) { userName = n.trim(); localStorage.setItem(NAME_KEY, userName); render(); }
+$("whoName").onclick = openProfile;
+$("btnProfileCancel").onclick = () => $("profileDialog").close();
+$("profileForm").onsubmit = () => {
+  const newName = $("profileName").value.trim();
+  const pick = $("avatarGrid").dataset.pick;
+  if (newName) { userName = newName; localStorage.setItem(NAME_KEY, userName); }
+  if (userName && pick) setAvatar(userName, pick);
+  else render();
 };
 
 /* ---------- boot ---------- */
