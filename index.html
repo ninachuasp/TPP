@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plonk — Sapporo Road Trip</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 64%22><g fill=%22%23c2410c%22><path d=%22M20 2C11 2 4 9 4 17c0 10 16 24 16 24s16-14 16-24C36 9 29 2 20 2Z%22/><circle cx=%2220%22 cy=%2216.5%22 r=%225.5%22 fill=%22white%22/><circle cx=%2220%22 cy=%2256%22 r=%225.5%22/></g></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 64%22><g transform=%22rotate(9 20 24)%22><path fill=%22%23c2410c%22 d=%22M20 2C11 2 4 9 4 17c0 10 16 24 16 24s16-14 16-24C36 9 29 2 20 2Z%22/><circle cx=%2214.5%22 cy=%2215.5%22 r=%224%22 fill=%22white%22/><circle cx=%2225.5%22 cy=%2215.5%22 r=%224%22 fill=%22white%22/><circle cx=%2215.6%22 cy=%2216%22 r=%221.8%22 fill=%22%232b2620%22/><circle cx=%2226.6%22 cy=%2216%22 r=%221.8%22 fill=%22%232b2620%22/></g><circle cx=%2223%22 cy=%2257%22 r=%225%22 fill=%22%23c2410c%22/></svg>">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="theme-color" content="#c2410c">
@@ -165,7 +165,17 @@
   .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
 
   .brand { display: flex; align-items: center; gap: 10px; }
-  .brand .logo { height: 27px; width: auto; display: block; }
+  .brand .logo { height: 28px; width: auto; display: block; }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(9deg); }
+    30% { transform: rotate(-4deg); }
+    60% { transform: rotate(14deg); }
+  }
+  .brand:hover .logo-pin { animation: wiggle .6s ease-in-out; transform-origin: 208px 46px; }
+  button:active { transform: translateY(1px) scale(.98); }
+  .res-badge { transform: rotate(-1.2deg); }
+  .tripometer { transform: rotate(-1deg); }
+  @media (prefers-reduced-motion: reduce) { .brand:hover .logo-pin { animation: none; } }
   .brand small {
     font-size: .62rem; font-weight: 600; color: var(--muted);
     letter-spacing: .09em; text-transform: uppercase; padding-top: 8px;
@@ -357,14 +367,17 @@
 <body>
 <header>
   <div class="brand">
-    <svg class="logo" viewBox="0 0 238 84" role="img" aria-label="Plonk!">
-      <text x="2" y="60" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif"
-        font-size="62" font-weight="700" fill="var(--ink)" letter-spacing="-1">Plonk</text>
-      <g fill="var(--accent)">
-        <path d="M206 6 C196 6 189 13.5 189 22 C189 32 206 46 206 46 C206 46 223 32 223 22 C223 13.5 216 6 206 6 Z"/>
-        <circle cx="206" cy="21.5" r="5.8" fill="var(--panel)"/>
-        <circle cx="206" cy="56" r="5.5"/>
+    <svg class="logo" viewBox="0 0 244 84" role="img" aria-label="Plonk!">
+      <text x="2" y="60" font-family="ui-rounded, 'Arial Rounded MT Bold', 'Nunito', 'Iowan Old Style', system-ui"
+        font-size="60" font-weight="800" fill="var(--ink)" letter-spacing="-1">Plonk</text>
+      <g fill="var(--accent)" class="logo-pin" transform="rotate(9 208 30)">
+        <path d="M208 5 C197.5 5 190 12.8 190 21.5 C190 32 208 46 208 46 C208 46 226 32 226 21.5 C226 12.8 218.5 5 208 5 Z"/>
+        <circle cx="201.5" cy="20" r="4.6" fill="var(--panel)"/>
+        <circle cx="214.5" cy="20" r="4.6" fill="var(--panel)"/>
+        <circle cx="202.8" cy="20.6" r="2.1" fill="var(--ink)"/>
+        <circle cx="215.8" cy="20.6" r="2.1" fill="var(--ink)"/>
       </g>
+      <circle cx="211" cy="57" r="5.5" fill="var(--accent)"/>
     </svg>
     <small>friends plonk, we plan</small>
   </div>
@@ -392,10 +405,10 @@
 <main>
   <div id="sidebar">
     <div class="add-box">
-      <h2>➕ Add a place</h2>
+      <h2>📍 Plonk a pin</h2>
       <div class="row">
         <input id="addInput" placeholder="Paste a Google Maps link, coordinates, or type a place name…">
-        <button id="btnAdd" class="primary">Add</button>
+        <button id="btnAdd" class="primary">Plonk!</button>
       </div>
       <div class="row">
         <select id="addDay"></select>
@@ -1112,11 +1125,11 @@ function addStopM(dayId, { name, lat, lng, links }) {
     dbTry(sb.from("trip_stops").insert({
       trip_id: LIVE_TRIP_ID, day_id: day.id, name, lat, lng,
       links: links || [], added_by: userName, position: day.stops.length,
-    }), `Added "${name}" to ${day.title}`);
+    }), `Plonked! 📍 "${name}" → ${day.title}`);
   } else {
     day.stops.push({ id: uid(), name, lat, lng, links: links || [], notes: "", addedBy: userName });
     persistLocal();
-    toast(`Added "${name}" to ${day.title}`);
+    toast(`Plonked! 📍 "${name}" → ${day.title}`);
   }
   map.setView([lat, lng], Math.max(map.getZoom(), 11));
 }
