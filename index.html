@@ -21,6 +21,9 @@
     --accent: #c2410c;
     --accent-soft: #fff1e8;
     --live: #15803d;
+    --nav-bg: #b83a0b;
+    --nav-bg2: #d4530f;
+    --nav-ink: #fff4ec;
     --radius: 12px;
     /* hand-drawn marker stack — system fonts, no network, wide device coverage */
     --hand: "Bradley Hand", "Bradley Hand ITC", "Marker Felt", "Chalkboard SE", "Comic Sans MS", "Ink Free", "Segoe Print", cursive;
@@ -30,14 +33,17 @@
   :root[data-skin="midnight"] {
     --bg: #14171f; --panel: #1d222e; --ink: #e8e8ef; --muted: #98a0b4;
     --line: #313a4e; --accent: #a294e0; --accent-soft: #2b2a45;
+    --nav-bg: #232842; --nav-bg2: #33395e; --nav-ink: #eceaf8;
   }
   :root[data-skin="matcha"] {
     --bg: #f1f5ee; --panel: #fbfdf8; --ink: #26302a; --muted: #7d8a80;
     --line: #dbe5d6; --accent: #3d7a55; --accent-soft: #e5f2e9;
+    --nav-bg: #2f6845; --nav-bg2: #3d7a55; --nav-ink: #f1fbf3;
   }
   :root[data-skin="sakura"] {
     --bg: #faf4f5; --panel: #fffcfc; --ink: #3a2e33; --muted: #97848b;
     --line: #eddfe3; --accent: #c2497a; --accent-soft: #fbe9f1;
+    --nav-bg: #b23f6e; --nav-bg2: #cc5488; --nav-ink: #fff2f8;
   }
   * { box-sizing: border-box; margin: 0; }
   body {
@@ -52,20 +58,47 @@
   .sf { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; }
   header {
     display: flex; align-items: center; gap: 12px;
-    padding: 10px 18px; background: var(--panel);
-    border-bottom: none; flex-wrap: wrap; position: relative; z-index: 10;
-    box-shadow: 0 1px 0 var(--line), 0 8px 24px -18px rgba(60, 45, 20, .4);
+    padding: 11px 18px; color: var(--nav-ink);
+    background: linear-gradient(105deg, var(--nav-bg) 0%, var(--nav-bg2) 100%);
+    border-bottom: none; flex-wrap: wrap; position: relative; z-index: 10; overflow: hidden;
+    box-shadow: 0 8px 24px -14px rgba(0,0,0,.6);
   }
-  header h1 { font-size: 1.15rem; font-weight: 600; }
+  /* faint dashed route doodle across the nav background */
+  header::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .13;
+    background-image: repeating-linear-gradient(115deg, var(--nav-ink) 0 8px, transparent 8px 22px);
+    -webkit-mask-image: radial-gradient(340px 120px at 82% 130%, #000, transparent 75%);
+    mask-image: radial-gradient(340px 120px at 82% 130%, #000, transparent 75%);
+  }
+  header > * { position: relative; z-index: 1; }
+  header h1 { font-size: 1.15rem; font-weight: 600; color: var(--nav-ink); }
   header h1 input {
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     font-size: inherit; font-weight: inherit;
-    border: none; background: transparent; color: inherit;
+    border: none; background: transparent; color: var(--nav-ink);
     width: 320px; border-bottom: 1px dashed transparent;
   }
-  header h1 input:focus { outline: none; border-bottom-color: var(--accent); }
-  .who { font-size: .8rem; color: var(--muted); }
-  .who b { color: var(--accent); cursor: pointer; }
+  header h1 input::placeholder { color: rgba(255,255,255,.6); }
+  header h1 input:focus { outline: none; border-bottom-color: var(--nav-ink); }
+  .who { font-size: .8rem; color: rgba(255,255,255,.75); }
+  .who b { color: var(--nav-ink); cursor: pointer; }
+  /* header buttons: light on the colored bar */
+  header button, header .btn {
+    background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.32); color: var(--nav-ink);
+  }
+  header button:hover { background: rgba(255,255,255,.24); border-color: rgba(255,255,255,.55); color: #fff; }
+  header button.primary { background: var(--nav-ink); border-color: var(--nav-ink); color: var(--nav-bg); box-shadow: 0 4px 14px -6px rgba(0,0,0,.5); }
+  header button.primary:hover { background: #fff; color: var(--nav-bg); filter: none; }
+  /* recolor the wordmark for the colored bar */
+  header .logo .lg-text { fill: var(--nav-ink); }
+  header .logo .lg-pin path { fill: var(--nav-ink); }
+  header .logo .lg-eye { fill: var(--nav-bg); }
+  header .logo .lg-pup { fill: var(--nav-ink); }
+  header .logo .lg-dot { fill: var(--nav-ink); }
+  header .brand small { color: rgba(255,255,255,.72); }
+  header #syncStatus { color: rgba(255,255,255,.72); }
+  header .tripometer { background: rgba(255,255,255,.16); color: var(--nav-ink); }
+  header #liveBadge { color: #a8f0c0; border-color: rgba(168,240,192,.6); }
   #liveBadge {
     font-size: .7rem; font-weight: 700; letter-spacing: .06em;
     color: var(--live); border: 1px solid var(--live); border-radius: 20px;
@@ -172,8 +205,8 @@
   }
   .picon { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.15em; }
   .cat-badge { color: var(--accent); display: inline-flex; }
-  .cat-badge .picon { width: 15px; height: 15px; }
-  .day-marker .picon { width: 16px; height: 16px; }
+  .cat-badge .picon { width: 16px; height: 16px; }
+  .day-marker .picon { width: 19px; height: 19px; }
   .leaflet-popup-content .picon { width: 15px; height: 15px; color: var(--accent); }
   .cat-choice .picon { width: 22px; height: 22px; color: var(--ink); }
   .cat-choice.on .picon { color: var(--accent); }
@@ -257,7 +290,12 @@
   body.night .map-brand b { color: #e8e8ef; }
 
   .brand { display: flex; align-items: center; gap: 11px; }
-  .brand .logo { height: 33px; width: auto; display: block; }
+  .brand .logo { height: 34px; width: auto; display: block; }
+  .logo .lg-text { fill: var(--ink); }
+  .logo .lg-pin path { fill: var(--accent); }
+  .logo .lg-eye { fill: var(--panel); }
+  .logo .lg-pup { fill: var(--ink); }
+  .logo .lg-dot { fill: var(--accent); }
   /* ---- hand-drawn personality accents ---- */
   .hand { font-family: var(--hand); }
   .sticker { display: inline-block; transform: rotate(-2.5deg); }
@@ -488,24 +526,24 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <!-- roughen filter: gives clean vector strokes a hand-drawn wobble -->
-    <filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/></filter>
-    <filter id="rough2"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4"/></filter>
+    <filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.011" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.9"/></filter>
+    <filter id="rough2"><feTurbulence type="fractalNoise" baseFrequency="0.009" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3.6"/></filter>
   </defs>
 </svg>
 
 <header>
   <div class="brand">
     <svg class="logo" viewBox="0 0 244 84" role="img" aria-label="Plonk!">
-      <text x="2" y="60" font-family="ui-rounded, 'Arial Rounded MT Bold', 'Nunito', 'Iowan Old Style', system-ui"
-        font-size="60" font-weight="800" fill="var(--ink)" letter-spacing="-1">Plonk</text>
-      <g fill="var(--accent)" class="logo-pin" transform="rotate(9 208 30)">
+      <text class="lg-text" x="2" y="60" font-family="ui-rounded, 'Arial Rounded MT Bold', 'Nunito', 'Iowan Old Style', system-ui"
+        font-size="60" font-weight="800" letter-spacing="-1">Plonk</text>
+      <g class="lg-pin" transform="rotate(9 208 30)">
         <path d="M208 5 C197.5 5 190 12.8 190 21.5 C190 32 208 46 208 46 C208 46 226 32 226 21.5 C226 12.8 218.5 5 208 5 Z"/>
-        <circle cx="201.5" cy="20" r="4.6" fill="var(--panel)"/>
-        <circle cx="214.5" cy="20" r="4.6" fill="var(--panel)"/>
-        <circle cx="202.8" cy="20.6" r="2.1" fill="var(--ink)"/>
-        <circle cx="215.8" cy="20.6" r="2.1" fill="var(--ink)"/>
+        <circle class="lg-eye" cx="201.5" cy="20" r="4.6"/>
+        <circle class="lg-eye" cx="214.5" cy="20" r="4.6"/>
+        <circle class="lg-pup" cx="202.8" cy="20.6" r="2.1"/>
+        <circle class="lg-pup" cx="215.8" cy="20.6" r="2.1"/>
       </g>
-      <circle cx="211" cy="57" r="5.5" fill="var(--accent)"/>
+      <circle class="lg-dot" cx="211" cy="57" r="5.5"/>
     </svg>
     <small>friends plonk, we plan</small>
   </div>
@@ -1692,22 +1730,22 @@ const CATEGORIES = {
 };
 /* Custom hand-drawn Plonk icon set (line icons, roughen-filtered). */
 const ICON_PATHS = {
-  food:      '<path d="M4 11h15a7.5 7.5 0 0 1-15 0Z"/><path d="M14 3.5 9.5 10M17 4.5 13 10.5"/>',
-  drink:     '<path d="M6.2 4h11l-1.1 14.2A2 2 0 0 1 14 20H9.4a2 2 0 0 1-2-1.8L6.2 4Z"/><path d="M7 9h9"/>',
-  stay:      '<path d="M3 19v-6h12a3 3 0 0 1 3 3v3M3 19h16M3 19v2M3 13V8M6.5 13v-1.2a1.2 1.2 0 0 1 1.2-1.2h2.6a1.2 1.2 0 0 1 1.2 1.2V13"/>',
-  onsen:     '<path d="M4 14h16a8 8 0 0 1-16 0Z"/><path d="M8 3.6c-1 1.4.9 2.4 0 3.8M12 3.6c-1 1.4.9 2.4 0 3.8M16 3.6c-1 1.4.9 2.4 0 3.8"/>',
-  nature:    '<path d="M2.5 20 9 8l4 6M12.5 15 16 9l5.5 11Z"/>',
-  sight:     '<path d="M4.5 7c3.5-2.2 11.5-2.2 15 0M5 9.5h14M6.6 9.5V20M17.4 9.5V20"/>',
-  activity:  '<path d="M6 3v18M6 4h11l-3 3.6L17 11H6"/>',
-  shop:      '<path d="M5.6 8h12.8l-1 11.6H6.6L5.6 8Z"/><path d="M8.6 8V6.2a3.4 3.4 0 0 1 6.8 0V8"/>',
-  transport: '<rect x="5" y="4" width="14" height="12" rx="2.5"/><path d="M5 11h14M9 4v7M15 4v7M8.5 20l-1.6 2M15.5 20l1.6 2"/>',
-  spot:      '<path d="M12 21s6.5-6 6.5-11a6.5 6.5 0 1 0-13 0C5.5 15 12 21 12 21Z"/><circle cx="12" cy="10" r="2.3"/>',
+  food:      '<path d="M4 10.5h16a8 8 0 0 1-16 0Z"/><path d="M3 10.5h18"/><path d="M15 3.5 11 9"/>',       // ramen bowl
+  drink:     '<path d="M6 4.5h12l-1.4 9c-.3 2-1.7 3-3.1 3h-2.9c-1.4 0-2.8-1-3.1-3L6 4.5Z"/><path d="M12 2.5v2"/>', // takeaway cup + straw
+  stay:      '<path d="M3 18v-5h10a4 4 0 0 1 4 4v1M3 18h14M3 18v2.5M3 13V8M6 13v-1a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 11 12v1"/>', // bed
+  onsen:     '<path d="M4 13.5h16a8 8 0 0 1-16 0Z"/><path d="M8 4c-1.2 1.5.9 2.6 0 4.2M12 4c-1.2 1.5.9 2.6 0 4.2M16 4c-1.2 1.5.9 2.6 0 4.2"/>', // hot spring
+  nature:    '<path d="M12 3 6 11h3l-4 6h14l-4-6h3Z"/><path d="M12 17v4"/>',                                 // pine tree
+  sight:     '<path d="M3.5 7c4-2.6 13-2.6 17 0M4.5 10h15M7 10v10M17 10v10"/>',                              // torii gate
+  activity:  '<path d="M6 21V3M6 4h12l-3.2 4L18 12H6"/>',                                                     // flag
+  shop:      '<path d="M5.5 8h13l-1 11.5H6.5L5.5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',                     // shopping bag
+  transport: '<rect x="5" y="4.5" width="14" height="11" rx="3"/><path d="M5 11h14"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>', // train/bus
+  spot:      '<path d="M12 21s6.5-6 6.5-11a6.5 6.5 0 1 0-13 0C5.5 15 12 21 12 21Z"/><circle cx="12" cy="10" r="2.4"/>', // pin
 };
 function catSvg(key, cls) {
   return `<svg class="picon ${cls || ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
-    `stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)">${ICON_PATHS[key] || ICON_PATHS.spot}</svg>`;
+    `stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)">${ICON_PATHS[key] || ICON_PATHS.spot}</svg>`;
 }
-const CHECK_SVG = `<svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M4 13l5 5L20 6"/></svg>`;
+const CHECK_SVG = `<svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M4 13l5 5L20 6"/></svg>`;
 /* a hand-drawn wobbly underline */
 function underline() {
   return `<svg class="doodle-underline" viewBox="0 0 120 7" preserveAspectRatio="none" filter="url(#rough)"><path d="M2 4.5 Q 30 1.5 60 4 T 118 3.5" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/></svg>`;
@@ -1791,7 +1829,6 @@ function render() {
     chev.title = isCollapsed ? "Expand day" : "Collapse day";
     chev.onclick = () => toggleCollapse(day.id);
     top.appendChild(chev);
-    top.insertAdjacentHTML("beforeend", `<span class="day-dot" style="background:${color}"></span>`);
 
     const hero = document.createElement("div"); hero.className = "day-hero";
     if (dated) {
