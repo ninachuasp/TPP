@@ -165,6 +165,11 @@
   .day-date {
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     font-weight: 700; font-size: 1.08rem; color: var(--ink); white-space: nowrap; flex-shrink: 0;
+    position: relative;
+  }
+  .day-date-box {
+    position: relative; display: inline-block; padding: 3px 11px; flex-shrink: 0;
+    transform: rotate(-0.7deg);
   }
   .day-botrow .crew-ava { margin-left: auto; }
   .day-index {
@@ -732,7 +737,7 @@
 const SB_URL = "https://wcncgckvrvlvbmqergvd.supabase.co";
 const SB_KEY = "sb_publishable_1grF-44ak6XLoHYzuNOTaQ_5zQxlXK7";
 
-const DAY_COLORS = ["#c2410c","#0e7490","#7c3aed","#15803d","#b45309","#be185d","#1d4ed8","#4d7c0f","#9f1239","#374151"];
+const DAY_COLORS = ["#e0531d","#1f6fc4","#6b47c9","#12897e","#b9820f","#a83b8f","#2b45cf","#55801f","#c02f5e","#566079"];
 const STORE_KEY = "tpp.trip.v4";
 const NAME_KEY = "tpp.username";
 
@@ -1244,7 +1249,7 @@ function confetti(x, y, n = 26) {
     document.body.appendChild(confettiCanvas);
   }
   confettiCanvas.width = innerWidth; confettiCanvas.height = innerHeight;
-  const colors = ["#c2410c", "#0e7490", "#7c3aed", "#15803d", "#ca8a04", "#be185d"];
+  const colors = ["#e0531d", "#1f6fc4", "#6b47c9", "#12897e", "#b9820f", "#c02f5e"];
   for (let i = 0; i < n; i++) confettiParts.push({
     x, y, vx: (Math.random() - .5) * 7, vy: -Math.random() * 7 - 3, g: .25,
     r: Math.random() * 4 + 2, c: colors[i % colors.length],
@@ -1869,7 +1874,10 @@ function render() {
     if (dated) {
       hero.innerHTML =
         `<span class="day-index" style="background:${color}">Day ${dayNum}</span>` +
-        `<span class="day-date">${esc(fmtDate(iso))}</span>`;
+        `<span class="day-date-box">` +
+          `<svg class="doodle-frame" preserveAspectRatio="none" viewBox="0 0 100 40" filter="url(#rough2)"><rect x="2" y="2" width="96" height="36" rx="9" vector-effect="non-scaling-stroke" style="stroke:${color}"/></svg>` +
+          `<span class="day-date">${esc(fmtDate(iso))}</span>` +
+        `</span>`;
     } else {
       const ti = document.createElement("input"); ti.className = "day-title-main";
       ti.value = day.title;
