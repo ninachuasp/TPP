@@ -7,25 +7,25 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 64%22><g transform=%22rotate(9 20 24)%22><path fill=%22%23c2410c%22 d=%22M20 2C11 2 4 9 4 17c0 10 16 24 16 24s16-14 16-24C36 9 29 2 20 2Z%22/><circle cx=%2214.5%22 cy=%2215.5%22 r=%224%22 fill=%22white%22/><circle cx=%2225.5%22 cy=%2215.5%22 r=%224%22 fill=%22white%22/><circle cx=%2215.6%22 cy=%2216%22 r=%221.8%22 fill=%22%232b2620%22/><circle cx=%2226.6%22 cy=%2216%22 r=%221.8%22 fill=%22%232b2620%22/></g><circle cx=%2223%22 cy=%2257%22 r=%225%22 fill=%22%23c2410c%22/></svg>">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="theme-color" content="#201d15">
+<meta name="theme-color" content="#2536cc">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <style>
   :root {
-    --bg: #f4f1e7;
+    --bg: #fbfaf5;
     --panel: #ffffff;
-    --ink: #2c2925;
-    --muted: #8b8375;
-    --line: #e7e1d3;
-    --accent: #16140f;
-    --accent-soft: #fff2c4;
-    --pop: #ffd939;
-    --on-accent: #201d15;
-    --live: #2f7d32;
-    --nav-bg: #201d15;
-    --nav-bg2: #2e2a20;
-    --nav-ink: #f6f1e4;
+    --ink: #23264a;
+    --muted: #7a7d9c;
+    --line: #e6e5ef;
+    --accent: #2536cc;
+    --accent-soft: #eaecfb;
+    --pop: #ee4620;
+    --on-accent: #ffffff;
+    --live: #157a3d;
+    --nav-bg: #2536cc;
+    --nav-bg2: #1c2aa8;
+    --nav-ink: #ffffff;
     --radius: 12px;
     /* hand-drawn marker stack — system fonts, no network, wide device coverage */
     --hand: "Bradley Hand", "Bradley Hand ITC", "Marker Felt", "Chalkboard SE", "Comic Sans MS", "Ink Free", "Segoe Print", cursive;
@@ -33,18 +33,18 @@
   }
   /* ---- Dark mode: same terracotta brand, dark warm ground ---- */
   :root[data-theme="dark"] {
-    --bg: #151309; --panel: #1e1b12; --ink: #f1ecdd; --muted: #a79e8b;
-    --line: #302b20; --accent: #f4efe1; --accent-soft: #3b3212; --live: #4ade80;
-    --pop: #ffd939; --on-accent: #201d15;
-    --nav-bg: #1e1b12; --nav-bg2: #29251a; --nav-ink: #f6f1e4;
+    --bg: #0f1024; --panel: #191b38; --ink: #e9e9f6; --muted: #9a9cc0;
+    --line: #2b2e57; --accent: #7d8bff; --accent-soft: #24284f; --live: #4ade80;
+    --pop: #ff5a34; --on-accent: #ffffff;
+    --nav-bg: #232a86; --nav-bg2: #1a2068; --nav-ink: #ffffff;
   }
   * { box-sizing: border-box; margin: 0; }
   body {
     font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
     background: var(--bg); color: var(--ink);
     background-image:
-      radial-gradient(640px 400px at 6% -6%, color-mix(in srgb, var(--pop) 22%, transparent), transparent 70%),
-      radial-gradient(720px 480px at 104% 22%, color-mix(in srgb, var(--pop) 14%, transparent), transparent 70%);
+      radial-gradient(640px 400px at 6% -6%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+      radial-gradient(720px 480px at 104% 22%, color-mix(in srgb, var(--pop) 9%, transparent), transparent 70%);
     background-attachment: fixed;
     height: 100vh; display: flex; flex-direction: column;
   }
@@ -85,7 +85,7 @@
   /* recolor the wordmark for the colored bar */
   header .logo .lg-text { fill: var(--nav-ink); }
   header .logo .lg-pin path { fill: var(--pop); }
-  header .logo .lg-eye { fill: var(--nav-bg); }
+  header .logo .lg-eye { fill: var(--nav-ink); }
   header .logo .lg-pup { fill: var(--nav-bg); }
   header .logo .lg-dot { fill: var(--pop); }
   header .brand small { color: rgba(255,255,255,.75); padding-top: 0; }
