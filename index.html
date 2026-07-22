@@ -169,6 +169,18 @@
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     font-weight: 700; font-size: .95rem;
   }
+  .cat-badge { font-size: .85rem; font-family: system-ui; }
+  .catgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .cat-choice {
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    font-size: 1.15rem; padding: 6px 2px 4px; border-radius: 10px; line-height: 1;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer;
+  }
+  .cat-choice small { font-size: .58rem; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+  .cat-choice:hover { border-color: var(--accent); }
+  .cat-choice.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
+  .cat-choice.on small { color: var(--accent); }
+  @media (max-width: 760px) { .catgrid { grid-template-columns: repeat(5, 1fr); } }
   .stop .meta { font-size: .72rem; color: var(--muted); margin-top: 2px; }
   .stop .links { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
   .stop .links a {
@@ -546,6 +558,8 @@
   <form method="dialog" id="editForm">
     <label>Name</label>
     <input id="editName">
+    <label>Type <span style="font-weight:400;color:var(--muted)">(shows as the map pin icon)</span></label>
+    <div id="editCat" class="catgrid"></div>
     <label>Day</label>
     <select id="editDaySel"></select>
     <label>Links <span style="font-weight:400;color:var(--muted)">(Google Maps, Instagram, TikTok, booking pages — image URLs become the stop's photo)</span></label>
@@ -585,6 +599,7 @@
     <input id="stayUrl" placeholder="https://booking.com/… or the hotel site" autocomplete="off">
     <div class="actions">
       <button type="button" id="btnStaySame" style="margin-right:auto">Same as last night</button>
+      <button type="button" id="btnStayPin">📍 Pin on map</button>
       <button type="button" id="btnStayCancel">Cancel</button>
       <button type="submit" class="primary">Save</button>
     </div>
@@ -1636,6 +1651,40 @@ async function geocodeSearch(query, dayId) {
   }
 }
 
+/* ---------- stop categories ----------
+ * Stored as a {type:"category",key} object inside the (synced) links array,
+ * so it rides the existing column with no migration; falls back to a guess. */
+const CATEGORIES = {
+  food:      { icon: "🍽️", label: "Food" },
+  drink:     { icon: "🍶", label: "Drinks" },
+  stay:      { icon: "🏨", label: "Stay" },
+  onsen:     { icon: "♨️", label: "Onsen" },
+  nature:    { icon: "🌲", label: "Nature" },
+  sight:     { icon: "⛩️", label: "Sights" },
+  activity:  { icon: "🎢", label: "Activity" },
+  shop:      { icon: "🛍️", label: "Shopping" },
+  transport: { icon: "🚉", label: "Transport" },
+  spot:      { icon: "📍", label: "Spot" },
+};
+function guessCategory(stop) {
+  const t = (stop.name + " " + (stop.notes || "")).toLowerCase();
+  if (/airport|station|rental car|\bbus\b|ferry|pickup|drop car|drop off|fly out/.test(t)) return "transport";
+  if (/hotel|ryokan|\binn\b|hostel|lodge|guesthouse|ryokan/.test(t)) return "stay";
+  if (/onsen|hot spring|jigokudani|hell valley/.test(t)) return "onsen";
+  if (/beer|whisky|whiskey|distillery|sake|\bbar\b|nightcap|brewery/.test(t)) return "drink";
+  if (/market|ramen|sushi|kaisendon|seafood|dinner|lunch|breakfast|cafe|coffee|\bfood\b|\beat\b|bbq|jingisukan|izakaya|restaurant|soft serve|melon|uni[- ]?don/.test(t)) return "food";
+  if (/park|falls|pond|lake|gorge|garden|hills|flower|lavender|cape|forest|\bmt\.?\b|mountain|patchwork|blue pond/.test(t)) return "nature";
+  if (/shop|shopping|souvenir|tanukikoji|koibito/.test(t)) return "shop";
+  if (/zoo|ski jump|ropeway|terrace|farm|factory|park.*noguchi|moerenuma/.test(t)) return "activity";
+  if (/shrine|temple|tower|canal|museum|village|castle|hell valley|park & tv/.test(t)) return "sight";
+  return "spot";
+}
+function getCategory(stop) {
+  const o = (stop.links || []).find(u => u && typeof u === "object" && u.type === "category");
+  return o && CATEGORIES[o.key] ? o.key : guessCategory(stop);
+}
+const catIcon = stop => CATEGORIES[getCategory(stop)].icon;
+
 /* ---------- rendering ---------- */
 let map, layerGroup, tileLayer = null;
 
@@ -1787,7 +1836,7 @@ function render() {
         <span class="num" style="background:${color}">${visited ? "✓" : si + 1}</span>
         <div class="body">
           ${photo ? `<img class="stop-photo" loading="lazy" alt="" src="${esc(photo)}" onerror="this.remove()">` : ""}
-          <div class="name"></div>
+          <div class="name"><span class="cat-badge" title="${esc(CATEGORIES[getCategory(stop)].label)}">${catIcon(stop)}</span> <span class="name-text"></span></div>
           ${wiki && wiki.desc ? `<div class="detail">${esc(wiki.desc)}</div>` : ""}
           <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}${stop.addedBy ? " · added by " + esc(avatar(stop.addedBy) + " " + stop.addedBy) : ""}</div>
           ${resBadgeHtml(stop)}
@@ -1805,7 +1854,7 @@ function render() {
           <button title="Move up" data-op="up">↑</button>
           <button title="Move down" data-op="down">↓</button>
         </div>`;
-      s.querySelector(".name").textContent = stop.name;
+      s.querySelector(".name-text").textContent = stop.name;
       s.querySelector(".body").style.cursor = "pointer";
       s.querySelector(".body").onclick = (ev) => {
         if (ev.target.tagName === "A" || ev.target.tagName === "BUTTON") return;
@@ -1870,14 +1919,14 @@ function renderMap() {
       const glowColor = visited ? "#ca8a04" : color;
       const icon = L.divIcon({
         className: "",
-        html: `<div class="day-marker" style="background:${glowColor};width:26px;height:26px;box-shadow:0 2px 6px rgba(0,0,0,.4),0 0 12px ${glowColor}${visited ? ";border-color:#fde68a" : ""}"><span>${visited ? "✓" : si + 1}</span></div>`,
-        iconSize: [26, 26], iconAnchor: [13, 26],
+        html: `<div class="day-marker" style="background:${glowColor};width:30px;height:30px;box-shadow:0 2px 6px rgba(0,0,0,.4),0 0 12px ${glowColor}${visited ? ";border-color:#fde68a" : ""}"><span>${visited ? "✓" : catIcon(stop)}</span></div>`,
+        iconSize: [30, 30], iconAnchor: [15, 30],
       });
       const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join(" · ");
       const photo = stopPhoto(stop);
       const marker = L.marker([stop.lat, stop.lng], { icon })
-        .bindPopup(`<b>${esc(stop.name)}</b><br><span style="color:${color}">${esc(day.title)}</span>` +
+        .bindPopup(`<b>${catIcon(stop)} ${esc(stop.name)}</b><br><span style="color:${color}">${esc(day.title)}</span>` +
           (photo ? `<br><img src="${esc(photo)}" alt="" onerror="this.remove()" style="width:180px;max-height:110px;object-fit:cover;border-radius:8px;margin-top:5px">` : "") +
           (resBadgeHtml(stop) ? "<br>" + resBadgeHtml(stop) : "") +
           (links ? "<br>" + links : "") +
@@ -2053,6 +2102,14 @@ function openEdit(day, stop) {
   editing = { day, stop };
   $("editName").value = stop.name;
   $("editNotes").value = stop.notes || "";
+  const cg = $("editCat"); cg.innerHTML = ""; cg.dataset.pick = getCategory(stop);
+  Object.entries(CATEGORIES).forEach(([key, c]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "cat-choice" + (key === cg.dataset.pick ? " on" : "");
+    b.innerHTML = `${c.icon}<small>${c.label}</small>`;
+    b.onclick = () => { cg.querySelectorAll(".cat-choice").forEach(x => x.classList.remove("on")); b.classList.add("on"); cg.dataset.pick = key; };
+    cg.appendChild(b);
+  });
   const sel = $("editDaySel");
   sel.innerHTML = trip.days.map(d =>
     `<option value="${d.id}" ${d.id === day.id ? "selected" : ""}>${esc(d.title)}</option>`).join("");
@@ -2091,6 +2148,8 @@ $("editForm").onsubmit = () => {
   const links = [...document.querySelectorAll("#editLinks input")].map(i => i.value.trim()).filter(Boolean);
   const kind = $("resKind").value;
   if (kind) links.push({ type: "reservation", kind, status: $("resStatus").value, note: $("resNote").value.trim() });
+  const catKey = $("editCat").dataset.pick;
+  if (catKey) links.push({ type: "category", key: catKey });
   updateStopM(day, stop, {
     name: $("editName").value.trim() || stop.name,
     notes: $("editNotes").value,
@@ -2322,6 +2381,20 @@ $("whoName").onclick = openProfile;
 $("btnStayCancel").onclick = () => $("stayDialog").close();
 $("stayForm").onsubmit = () => {
   if (editingStay) setDayLodging(editingStay, packLodging($("stayName").value, $("stayUrl").value));
+};
+$("btnStayPin").onclick = async () => {
+  const day = editingStay;
+  const name = $("stayName").value.trim(), url = $("stayUrl").value.trim();
+  if (!name) { toast("Enter the accommodation name first"); return; }
+  setDayLodging(day, packLodging(name, url));  // save the text field too
+  $("stayDialog").close();
+  toast("Finding " + name + " on the map…");
+  try {
+    let r = (await (await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(name + " Hokkaido Japan"))).json())[0];
+    if (!r) r = (await (await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(name))).json())[0];
+    if (!r) { toast("Couldn't find “" + name + "” — try a more specific name"); return; }
+    addStopM(day.id, { name, lat: +r.lat, lng: +r.lon, links: (url ? [url] : []).concat([{ type: "category", key: "stay" }]) });
+  } catch (e) { toast("Map lookup unavailable right now"); }
 };
 $("btnProfileCancel").onclick = () => $("profileDialog").close();
 $("profileForm").onsubmit = () => {
