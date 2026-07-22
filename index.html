@@ -157,6 +157,35 @@
   .stops-count { padding: 8px 12px; font-size: .75rem; color: var(--muted); cursor: pointer; }
   .stops-count:hover { color: var(--accent); }
   #syncStatus { font-size: .7rem; color: var(--muted); }
+  .tripometer {
+    font-size: .72rem; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); border-radius: 20px; padding: 3px 10px;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .tripometer:empty { display: none; }
+  .stop.spin-glow { outline: 2px solid var(--accent); background: var(--accent-soft); border-radius: 8px; }
+  .stop-photo {
+    width: 58px; height: 58px; object-fit: cover; border-radius: 9px;
+    float: right; margin: 0 0 6px 8px; background: var(--bg);
+  }
+  .stop .detail { font-size: .74rem; color: var(--muted); margin-top: 2px; font-style: italic; }
+  .res-badge {
+    display: inline-block; font-size: .69rem; font-weight: 700;
+    border-radius: 20px; padding: 2px 9px; margin-top: 4px;
+  }
+  .res-badge.booked { color: #15803d; background: #ecfdf3; border: 1px solid #b5e0c4; }
+  .res-badge.pending { color: #b45309; background: #fef7e8; border: 1px solid #ecd3a1; }
+
+  #map { background: #0d1321; }
+  .map-style-btn {
+    font-size: 1rem; width: 34px; height: 34px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer;
+    box-shadow: 0 1px 5px rgba(0,0,0,.3); line-height: 1;
+  }
+  body.night .leaflet-popup-content-wrapper, body.night .leaflet-popup-tip {
+    background: #1c2130; color: #e8e8ef;
+  }
+  body.night .leaflet-popup-content a { color: #a294e0; }
 
   dialog {
     border: none; border-radius: var(--radius); padding: 18px;
@@ -213,6 +242,7 @@
 <header>
   <div class="brand"><b>🧭 Detour</b><small>plan the drive together</small></div>
   <h1><input id="tripTitle" value=""></h1>
+  <span id="tripometer" class="tripometer"></span>
   <span id="liveBadge" title="Everyone with this link sees changes instantly">● LIVE</span>
   <span id="syncStatus"></span>
   <span class="who">planning as <b id="whoName" title="click to change your name">…</b></span>
@@ -257,9 +287,24 @@
     <input id="editName">
     <label>Day</label>
     <select id="editDaySel"></select>
-    <label>Links <span style="font-weight:400;color:var(--muted)">(Google Maps, Instagram, TikTok, booking pages…)</span></label>
+    <label>Links <span style="font-weight:400;color:var(--muted)">(Google Maps, Instagram, TikTok, booking pages — image URLs become the stop's photo)</span></label>
     <div id="editLinks"></div>
     <button type="button" id="btnAddLink" style="font-size:.75rem;margin-top:2px">＋ add link</button>
+    <label>Reservation</label>
+    <div style="display:flex;gap:6px">
+      <select id="resKind" style="flex:1">
+        <option value="">— none —</option>
+        <option value="hotel">🏨 Hotel</option>
+        <option value="dinner">🍽️ Dinner</option>
+        <option value="activity">🎫 Activity</option>
+        <option value="car">🚗 Car</option>
+      </select>
+      <select id="resStatus" style="flex:1">
+        <option value="booked">Booked ✓</option>
+        <option value="pending">Pending ⏳</option>
+      </select>
+    </div>
+    <input id="resNote" placeholder="time / confirmation # (e.g. 19:00, Booking #A1B2)" style="margin-top:5px">
     <label>Notes</label>
     <textarea id="editNotes" rows="3" placeholder="opening hours, what to order, parking tips…"></textarea>
     <div class="actions">
@@ -311,7 +356,7 @@ function seedTrip() {
       { id: uid(), title: "Sun 12 Oct — Sapporo · Derek & Sean", stops: [
         mk("Nijo Market", 43.0570, 141.3612, [], "Land + morning kaisendon run"),
         mk("Odori Park & TV Tower", 43.0606, 141.3472, [], "Walk it off downtown"),
-        mk("Sapporo Beer Garden", 43.0713, 141.3697, [], "Genghis Khan BBQ dinner"),
+        mk("Sapporo Beer Garden", 43.0713, 141.3697, [{ type: "reservation", kind: "dinner", status: "pending", note: "18:30 — book ahead" }], "Genghis Khan BBQ dinner"),
         mk("Susukino", 43.0553, 141.3536, [], "Nightcap / ramen alley"),
       ]},
       { id: uid(), title: "Mon 13 Oct — Sapporo & Jozankei · Derek & Sean", stops: [
@@ -323,7 +368,7 @@ function seedTrip() {
       { id: uid(), title: "Tue 14 Oct — Pickup → Noboribetsu · all 4", stops: [
         mk("New Chitose Airport", 42.7752, 141.6923, [], "Collect Nina & Seth + rental car"),
         mk("Lake Shikotsu", 42.7600, 141.3400, [], "Lakeside foliage stop, 30 min from airport"),
-        mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [], "Check into onsen ryokan, evening Hell Valley walk"),
+        mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [{ type: "reservation", kind: "hotel", status: "pending", note: "onsen ryokan TBD" }], "Check into onsen ryokan, evening Hell Valley walk"),
       ]},
       { id: uid(), title: "Wed 15 Oct — Noboribetsu → Lake Toya · all 4", stops: [
         mk("Usuzan Ropeway", 42.5430, 140.8280, [], "Volcano + caldera views"),
@@ -378,13 +423,17 @@ const metaKey = () => "tpp.meta." + (LIVE ? LIVE_TRIP_ID : "local");
 let meta = { votes: {}, visited: {} };
 try { Object.assign(meta, JSON.parse(localStorage.getItem(metaKey()) || "{}")); } catch (e) {}
 function saveMeta() { localStorage.setItem(metaKey(), JSON.stringify(meta)); render(); }
+/* Two vote tiers: level 1 = 🔥 want, level 2 = 💯 die-die must do. */
 const stopVotes = stop => (SYNC_META ? stop.votes : meta.votes[stop.id]) || {};
-const voteCount = stop => Object.keys(stopVotes(stop)).length;
-const myVote = stop => !!stopVotes(stop)[userName || "anonymous"];
-function toggleVote(stop) {
+const fireCount = stop => Object.values(stopVotes(stop)).filter(Boolean).length;
+const mustCount = stop => Object.values(stopVotes(stop)).filter(x => x === 2).length;
+const myVote = stop => stopVotes(stop)[userName || "anonymous"] || 0;
+const voteNames = stop => Object.entries(stopVotes(stop))
+  .map(([n, lv]) => avatar(n) + " " + n + (lv === 2 ? " 💯" : "")).join(", ");
+function setVote(stop, level) {
   const k = userName || "anonymous";
   const v = { ...stopVotes(stop) };
-  if (v[k]) delete v[k]; else v[k] = 1;
+  if (v[k] === level) delete v[k]; else v[k] = level;
   if (LIVE && SYNC_META) {
     stop.votes = v; render();
     dbTry(sb.from("trip_stops").update({ votes: v }).eq("id", stop.id));
@@ -503,6 +552,161 @@ function crewDots(title) {
     dots[0] === CREW_A ? "Derek & Sean" : "Nina & Seth";
   dots.forEach(c => { const i = document.createElement("i"); i.style.background = c; s.appendChild(i); });
   return s;
+}
+
+/* ---------- fun pack: avatars, trip-ometer, confetti, roulette ---------- */
+const AVATARS = ["🦊", "🐻", "🐧", "🦉", "🐯", "🦌", "🐙", "🐬", "🦜", "🐢"];
+function avatar(name) {
+  if (!name) return "";
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return AVATARS[h % AVATARS.length];
+}
+
+function tripDates() {
+  let min = null, max = null;
+  for (const d of trip.days) {
+    const m = d.title.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+    if (!m) continue;
+    const dt = new Date(new Date().getFullYear(), MONTHS[m[2].toLowerCase()], +m[1]);
+    if (!min || dt < min) min = dt;
+    if (!max || dt > max) max = dt;
+  }
+  return min && max ? { start: min, end: max } : null;
+}
+function renderTripometer() {
+  const el = $("tripometer");
+  const total = trip.days.reduce((a, d) => a + d.stops.length, 0);
+  const seen = trip.days.reduce((a, d) => a + d.stops.filter(isVisited).length, 0);
+  const r = tripDates();
+  if (!r) { el.textContent = ""; return; }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (today < r.start) {
+    const n = Math.round((r.start - today) / 864e5);
+    el.textContent = `🛫 ${n} day${n === 1 ? "" : "s"} to go`;
+  } else if (today > r.end) {
+    el.textContent = `🏁 ${seen}/${total} stops seen`;
+  } else {
+    const dayN = Math.round((today - r.start) / 864e5) + 1;
+    const len = Math.round((r.end - r.start) / 864e5) + 1;
+    el.textContent = `🗾 Day ${dayN} of ${len} · ${seen}/${total} seen`;
+  }
+}
+
+let confettiCanvas = null, confettiParts = [], confettiRaf = null;
+function confetti(x, y, n = 26) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (!confettiCanvas) {
+    confettiCanvas = document.createElement("canvas");
+    confettiCanvas.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:3000";
+    document.body.appendChild(confettiCanvas);
+  }
+  confettiCanvas.width = innerWidth; confettiCanvas.height = innerHeight;
+  const colors = ["#c2410c", "#0e7490", "#7c3aed", "#15803d", "#ca8a04", "#be185d"];
+  for (let i = 0; i < n; i++) confettiParts.push({
+    x, y, vx: (Math.random() - .5) * 7, vy: -Math.random() * 7 - 3, g: .25,
+    r: Math.random() * 4 + 2, c: colors[i % colors.length],
+    life: 70 + Math.random() * 30, rot: Math.random() * 6.3, vr: (Math.random() - .5) * .3,
+  });
+  if (!confettiRaf) confettiTick();
+}
+function confettiTick() {
+  const ctx = confettiCanvas.getContext("2d");
+  ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confettiParts = confettiParts.filter(p => p.life > 0);
+  for (const p of confettiParts) {
+    p.x += p.vx; p.y += p.vy; p.vy += p.g; p.life--; p.rot += p.vr;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.fillStyle = p.c; ctx.globalAlpha = Math.min(1, p.life / 30);
+    ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); ctx.restore();
+  }
+  confettiRaf = confettiParts.length ? requestAnimationFrame(confettiTick) : null;
+  if (!confettiParts.length) ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+}
+
+function spinDay(day) {
+  const els = [...document.querySelectorAll(`[data-day-id="${day.id}"] .stop`)];
+  if (els.length < 2) return;
+  let i = Math.floor(Math.random() * els.length), delay = 70;
+  const steps = 12 + Math.floor(Math.random() * els.length);
+  let n = 0;
+  (function tick() {
+    els.forEach(e => e.classList.remove("spin-glow"));
+    els[i % els.length].classList.add("spin-glow");
+    if (++n < steps) { i++; delay *= 1.16; setTimeout(tick, delay); return; }
+    const winner = day.stops[i % els.length];
+    const r = els[i % els.length].getBoundingClientRect();
+    confetti(r.left + r.width / 2, r.top + 16, 20);
+    toast(`🎯 ${winner.name}!`);
+    map.setView([winner.lat, winner.lng], 13);
+    setTimeout(() => els.forEach(e => e.classList.remove("spin-glow")), 3000);
+  })();
+}
+
+const PLACEHOLDERS = [
+  "Paste a Google Maps link, or just type 'ramen'…",
+  "Found something on a reel? Drop the maps link here",
+  "Where does Seth want to eat? 👀",
+  "Type 'onsen' — you know you want to",
+  "43.0618, 141.3545 works too, map nerds",
+];
+setInterval(() => {
+  const inp = $("addInput");
+  if (inp && !inp.value && document.activeElement !== inp)
+    inp.placeholder = PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)];
+}, 6000);
+const EMPTY_DAY = ["Nothing yet — someone's slacking 👀", "A blank day is a dare.", "Free day… for now."];
+
+/* ---------- visuals + details: Wikipedia thumbnails & descriptions ---------- */
+let wikiCache = {};
+try { wikiCache = JSON.parse(localStorage.getItem("tpp.wiki") || "{}"); } catch (e) {}
+const wikiPending = new Set();
+const wikiInfo = stop => wikiCache[stop.name] || null;
+async function refreshWiki() {
+  let updated = false;
+  const names = [...new Set(trip.days.flatMap(d => d.stops.map(s => s.name)))]
+    .filter(n => !(n in wikiCache) && !wikiPending.has(n) && !/^pinned/i.test(n));
+  for (const name of names.slice(0, 8)) {
+    wikiPending.add(name);
+    try {
+      let res = await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(name));
+      if (!res.ok && /\(/.test(name))
+        res = await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(name.replace(/\s*\(.*\)/, "")));
+      if (res.ok) {
+        const j = await res.json();
+        wikiCache[name] = {
+          img: (j.thumbnail && j.thumbnail.source) || null,
+          desc: j.description || null,
+        };
+      } else wikiCache[name] = null;
+    } catch (e) { wikiCache[name] = null; }
+    wikiPending.delete(name);
+    updated = true;
+  }
+  if (updated) {
+    try { localStorage.setItem("tpp.wiki", JSON.stringify(wikiCache)); } catch (e) {}
+    render();
+  }
+}
+
+/* ---------- reservations & photos (stored inside the synced links array) ----------
+ * links entries are either URL strings or {type:"reservation", kind, status, note}. */
+const strLinks = stop => (stop.links || []).filter(u => typeof u === "string");
+const isImageUrl = u => /\.(jpe?g|png|webp|gif|avif)(\?|#|$)/i.test(u);
+const getReservation = stop => (stop.links || []).find(u => u && typeof u === "object" && u.type === "reservation") || null;
+function resBadgeHtml(stop) {
+  const r = getReservation(stop);
+  if (!r) return "";
+  const icons = { hotel: "🏨", dinner: "🍽️", activity: "🎫", car: "🚗" };
+  const booked = r.status === "booked";
+  return `<span class="res-badge ${booked ? "booked" : "pending"}" title="${esc(r.note || "")}">` +
+    `${icons[r.kind] || "📌"} ${booked ? "booked ✓" : "pending ⏳"}${r.note ? " · " + esc(r.note) : ""}</span>`;
+}
+function stopPhoto(stop) {
+  const own = strLinks(stop).find(isImageUrl);
+  if (own) return own;
+  const w = wikiInfo(stop);
+  return w && w.img ? w.img : null;
 }
 
 function loadLocalTrip() {
@@ -769,13 +973,32 @@ async function geocodeSearch(query, dayId) {
 }
 
 /* ---------- rendering ---------- */
-let map, layerGroup;
+let map, layerGroup, tileLayer = null;
+
+/* Night mode: CARTO Dark Matter with neon routes. Day: CARTO Voyager. */
+const BASEMAPS = {
+  night: { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" },
+  day: { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" },
+};
+let basemap = localStorage.getItem("tpp.basemap") || "night";
+function setBasemap(mode) {
+  basemap = mode;
+  localStorage.setItem("tpp.basemap", mode);
+  if (tileLayer) map.removeLayer(tileLayer);
+  tileLayer = L.tileLayer(BASEMAPS[mode].url, {
+    maxZoom: 19, subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  }).addTo(map);
+  document.body.classList.toggle("night", mode === "night");
+  const b = document.querySelector(".map-style-btn");
+  if (b) b.textContent = mode === "night" ? "☀️" : "🌙";
+}
 
 function dayColor(i) { return DAY_COLORS[i % DAY_COLORS.length]; }
 
 function render() {
   $("tripTitle").value = trip.title;
-  $("whoName").textContent = userName || "anonymous";
+  $("whoName").textContent = userName ? avatar(userName) + " " + userName : "anonymous";
 
   const daySel = $("addDay");
   const prevSel = daySel.value;
@@ -790,6 +1013,7 @@ function render() {
     const isCollapsed = collapsed.has(day.id) && !today;
     const el = document.createElement("div");
     el.className = "day" + (today ? " today" : "");
+    el.dataset.dayId = day.id;
     const head = document.createElement("div");
     head.className = "day-head";
     const chev = document.createElement("button");
@@ -807,6 +1031,12 @@ function render() {
     if (dots) head.appendChild(dots);
     const drive = driveBadge(day);
     if (drive) head.appendChild(drive);
+    if (day.stops.length >= 2) {
+      const spin = document.createElement("button");
+      spin.className = "mini"; spin.textContent = "🎲"; spin.title = "Can't decide? Spin!";
+      spin.onclick = () => spinDay(day);
+      head.appendChild(spin);
+    }
     const delBtn = document.createElement("button");
     delBtn.className = "mini"; delBtn.textContent = "✕"; delBtn.title = "Remove day";
     delBtn.onclick = () => {
@@ -828,25 +1058,33 @@ function render() {
 
     if (!day.stops.length) {
       const e = document.createElement("div");
-      e.className = "empty-day"; e.textContent = "No stops yet";
+      e.className = "empty-day";
+      e.textContent = EMPTY_DAY[di % EMPTY_DAY.length];
       el.appendChild(e);
     }
     day.stops.forEach((stop, si) => {
       const s = document.createElement("div");
       const visited = isVisited(stop);
       s.className = "stop" + (visited ? " visited-row" : "");
-      const links = (stop.links || []).map(u =>
+      s.dataset.stopId = stop.id;
+      const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join("");
-      const nVotes = voteCount(stop);
+      const fires = fireCount(stop), musts = mustCount(stop);
+      const photo = stopPhoto(stop);
+      const wiki = wikiInfo(stop);
       s.innerHTML = `
         <span class="num" style="background:${color}">${visited ? "✓" : si + 1}</span>
         <div class="body">
+          ${photo ? `<img class="stop-photo" loading="lazy" alt="" src="${esc(photo)}" onerror="this.remove()">` : ""}
           <div class="name"></div>
-          <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}${stop.addedBy ? " · added by " + esc(stop.addedBy) : ""}</div>
+          ${wiki && wiki.desc ? `<div class="detail">${esc(wiki.desc)}</div>` : ""}
+          <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}${stop.addedBy ? " · added by " + esc(avatar(stop.addedBy) + " " + stop.addedBy) : ""}</div>
+          ${resBadgeHtml(stop)}
           ${links ? `<div class="links">${links}</div>` : ""}
           ${stop.notes ? `<div class="notes">${esc(stop.notes)}</div>` : ""}
           <div class="acts">
-            <button data-op="vote" class="${myVote(stop) ? "on" : ""}" title="Vote this stop up">🔥${nVotes ? " " + nVotes : ""}</button>
+            <button data-op="vote" class="${myVote(stop) === 1 ? "on" : ""}" title="${esc(voteNames(stop)) || "Vote this stop up"}">🔥${fires ? " " + fires : ""}</button>
+            <button data-op="must" class="${myVote(stop) === 2 ? "on" : ""}" title="Die-die must do — non-negotiable!">💯${musts ? " " + musts : ""}</button>
             <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
             <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Navigate here in Google Maps">🧭 Go</a>
           </div>
@@ -862,8 +1100,21 @@ function render() {
         if (ev.target.tagName === "A" || ev.target.tagName === "BUTTON") return;
         map.setView([stop.lat, stop.lng], 13);
       };
-      s.querySelector('[data-op=vote]').onclick = () => toggleVote(stop);
-      s.querySelector('[data-op=visited]').onclick = () => toggleVisited(stop);
+      s.querySelector('[data-op=vote]').onclick = () => setVote(stop, 1);
+      s.querySelector('[data-op=must]').onclick = (ev) => {
+        if (myVote(stop) !== 2) confetti(ev.clientX, ev.clientY, 14);
+        setVote(stop, 2);
+      };
+      s.querySelector('[data-op=visited]').onclick = (ev) => {
+        const wasVisited = isVisited(stop);
+        toggleVisited(stop);
+        if (!wasVisited) {
+          confetti(ev.clientX, ev.clientY);
+          if (day.stops.every(st => st === stop || isVisited(st)) && day.stops.length > 1) {
+            setTimeout(() => { confetti(innerWidth / 2, innerHeight / 3, 60); toast(`🎉 ${day.title} — complete!`); }, 300);
+          }
+        }
+      };
       s.querySelector('[data-op=edit]').onclick = () => openEdit(day, stop);
       s.querySelector('[data-op=up]').onclick = () => moveStop(day, si, -1);
       s.querySelector('[data-op=down]').onclick = () => moveStop(day, si, 1);
@@ -872,8 +1123,10 @@ function render() {
     container.appendChild(el);
   });
 
+  renderTripometer();
   renderMap();
   refreshRoutes();
+  refreshWiki();
 }
 
 function renderMap() {
@@ -884,15 +1137,19 @@ function renderMap() {
     const pts = [];
     day.stops.forEach((stop, si) => {
       const visited = isVisited(stop);
+      const glowColor = visited ? "#ca8a04" : color;
       const icon = L.divIcon({
         className: "",
-        html: `<div class="day-marker" style="background:${visited ? "#ca8a04" : color};width:26px;height:26px${visited ? ";border-color:#fde68a" : ""}"><span>${visited ? "✓" : si + 1}</span></div>`,
+        html: `<div class="day-marker" style="background:${glowColor};width:26px;height:26px;box-shadow:0 2px 6px rgba(0,0,0,.4),0 0 12px ${glowColor}${visited ? ";border-color:#fde68a" : ""}"><span>${visited ? "✓" : si + 1}</span></div>`,
         iconSize: [26, 26], iconAnchor: [13, 26],
       });
-      const links = (stop.links || []).map(u =>
+      const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join(" · ");
+      const photo = stopPhoto(stop);
       const marker = L.marker([stop.lat, stop.lng], { icon })
         .bindPopup(`<b>${esc(stop.name)}</b><br><span style="color:${color}">${esc(day.title)}</span>` +
+          (photo ? `<br><img src="${esc(photo)}" alt="" onerror="this.remove()" style="width:180px;max-height:110px;object-fit:cover;border-radius:8px;margin-top:5px">` : "") +
+          (resBadgeHtml(stop) ? "<br>" + resBadgeHtml(stop) : "") +
           (links ? "<br>" + links : "") +
           (stop.notes ? `<br><i>${esc(stop.notes)}</i>` : ""));
       layerGroup.addLayer(marker);
@@ -901,8 +1158,14 @@ function renderMap() {
     });
     if (pts.length > 1 && !/idea|unassigned|wish|solo/i.test(day.title)) {
       const r = dayRoute(day);
-      if (r && r.line) layerGroup.addLayer(L.polyline(r.line, { color, weight: 3, opacity: .6 }));
-      else layerGroup.addLayer(L.polyline(pts, { color, weight: 3, opacity: .55, dashArray: "6 8" }));
+      // wide soft underlay + bright core = neon glow, especially on the night map
+      if (r && r.line) {
+        layerGroup.addLayer(L.polyline(r.line, { color, weight: 9, opacity: .22 }));
+        layerGroup.addLayer(L.polyline(r.line, { color, weight: 3, opacity: .95 }));
+      } else {
+        layerGroup.addLayer(L.polyline(pts, { color, weight: 8, opacity: .15 }));
+        layerGroup.addLayer(L.polyline(pts, { color, weight: 3, opacity: .7, dashArray: "6 8" }));
+      }
     }
   });
   if (allPts.length && !map._userMoved) map.fitBounds(allPts, { padding: [40, 40] });
@@ -920,8 +1183,12 @@ function openEdit(day, stop) {
     `<option value="${d.id}" ${d.id === day.id ? "selected" : ""}>${esc(d.title)}</option>`).join("");
   const linksBox = $("editLinks");
   linksBox.innerHTML = "";
-  (stop.links || []).forEach(u => addLinkRow(u));
-  if (!(stop.links || []).length) addLinkRow("");
+  strLinks(stop).forEach(u => addLinkRow(u));
+  if (!strLinks(stop).length) addLinkRow("");
+  const res = getReservation(stop);
+  $("resKind").value = res ? res.kind : "";
+  $("resStatus").value = res ? res.status : "booked";
+  $("resNote").value = res ? (res.note || "") : "";
   $("editDialog").showModal();
 }
 
@@ -946,10 +1213,13 @@ $("btnDeleteStop").onclick = () => {
 $("editForm").onsubmit = () => {
   if (!editing) return;
   const { day, stop } = editing;
+  const links = [...document.querySelectorAll("#editLinks input")].map(i => i.value.trim()).filter(Boolean);
+  const kind = $("resKind").value;
+  if (kind) links.push({ type: "reservation", kind, status: $("resStatus").value, note: $("resNote").value.trim() });
   updateStopM(day, stop, {
     name: $("editName").value.trim() || stop.name,
     notes: $("editNotes").value,
-    links: [...document.querySelectorAll("#editLinks input")].map(i => i.value.trim()).filter(Boolean),
+    links,
   }, $("editDaySel").value);
 };
 
@@ -1113,10 +1383,16 @@ async function boot() {
   }
   map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
   map.on("dragstart zoomstart", () => { map._userMoved = true; });
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  }).addTo(map);
+  setBasemap(basemap);
+  const styleCtl = L.control({ position: "topright" });
+  styleCtl.onAdd = () => {
+    const b = L.DomUtil.create("button", "map-style-btn");
+    b.textContent = basemap === "night" ? "☀️" : "🌙";
+    b.title = "Toggle night / day map";
+    b.onclick = (e) => { e.stopPropagation(); setBasemap(basemap === "night" ? "day" : "night"); };
+    return b;
+  };
+  styleCtl.addTo(map);
   layerGroup = L.layerGroup().addTo(map);
 
   if (LIVE) {
