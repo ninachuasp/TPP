@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plonk — Sapporo Road Trip</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📍</text></svg>">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --panel: #ffffff;
+    --ink: #2b2620;
+    --muted: #8a8175;
+    --line: #e7e2d8;
+    --accent: #c2410c;
+    --accent-soft: #fff1e8;
+    --live: #15803d;
+    --radius: 12px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg); color: var(--ink);
+    height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 18px; background: var(--panel);
+    border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  }
+  header h1 { font-size: 1.1rem; font-weight: 700; }
+  header h1 input {
+    font: inherit; border: none; background: transparent; color: inherit;
+    width: 320px; border-bottom: 1px dashed transparent;
+  }
+  header h1 input:focus { outline: none; border-bottom-color: var(--accent); }
+  .who { font-size: .8rem; color: var(--muted); }
+  .who b { color: var(--accent); cursor: pointer; }
+  #liveBadge {
+    font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+    color: var(--live); border: 1px solid var(--live); border-radius: 20px;
+    padding: 2px 9px; display: none;
+  }
+  #liveBadge.on { display: inline-block; }
+  .spacer { flex: 1; }
+  button, .btn {
+    font: inherit; font-size: .82rem; font-weight: 600;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { filter: brightness(1.08); color: #fff; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #sidebar {
+    width: 420px; max-width: 46vw; overflow-y: auto;
+    background: var(--bg); padding: 14px; border-right: 1px solid var(--line);
+  }
+  #map { flex: 1; min-width: 0; }
+
+  .add-box {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 12px; margin-bottom: 14px;
+  }
+  .add-box h2 { font-size: .85rem; margin-bottom: 8px; }
+  .add-box .row { display: flex; gap: 6px; margin-bottom: 6px; }
+  .add-box input, .add-box select, .add-box textarea {
+    font: inherit; font-size: .85rem; flex: 1; min-width: 0;
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px;
+    background: #fcfbf8;
+  }
+  .add-box input:focus, .add-box textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .hint { font-size: .72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  .geo-results { margin-top: 6px; }
+  .geo-results button {
+    display: block; width: 100%; text-align: left; margin-bottom: 4px;
+    font-weight: 400; font-size: .8rem;
+  }
+
+  .day {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); margin-bottom: 12px; overflow: hidden;
+  }
+  .day-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-bottom: 1px solid var(--line);
+  }
+  .day-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .day-head input {
+    font: inherit; font-weight: 700; font-size: .9rem;
+    border: none; background: transparent; flex: 1; min-width: 0;
+  }
+  .day-head input:focus { outline: none; }
+  .day-head .mini { font-size: .72rem; padding: 3px 7px; }
+  .stop {
+    display: flex; gap: 9px; padding: 9px 12px;
+    border-bottom: 1px solid var(--line); align-items: flex-start;
+  }
+  .stop:last-child { border-bottom: none; }
+  .stop .num {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    color: #fff; font-size: .7rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  }
+  .stop .body { flex: 1; min-width: 0; }
+  .stop .name { font-weight: 600; font-size: .87rem; }
+  .stop .meta { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+  .stop .links { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .stop .links a {
+    font-size: .7rem; text-decoration: none; color: var(--accent);
+    background: var(--accent-soft); padding: 2px 8px; border-radius: 20px;
+  }
+  .stop .notes { font-size: .77rem; margin-top: 4px; color: #57503f; white-space: pre-wrap; }
+  .stop .ops { display: flex; flex-direction: column; gap: 2px; }
+  .stop .ops button {
+    border: none; background: none; padding: 1px 4px; font-size: .75rem; color: var(--muted);
+  }
+  .stop .ops button:hover { color: var(--accent); }
+  .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
+
+  .brand { display: flex; align-items: baseline; gap: 8px; }
+  .brand b { font-size: 1.15rem; font-weight: 800; letter-spacing: .01em; color: var(--accent); }
+  .brand small {
+    font-size: .62rem; font-weight: 600; color: var(--muted);
+    letter-spacing: .09em; text-transform: uppercase;
+  }
+  .crew-dots { display: inline-flex; gap: 3px; align-items: center; flex-shrink: 0; }
+  .crew-dots i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .drive-badge {
+    font-size: .67rem; font-weight: 700; color: var(--muted); white-space: nowrap;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 20px; padding: 2px 8px;
+    flex-shrink: 0; font-variant-numeric: tabular-nums;
+  }
+  .drive-badge.warn { color: #b45309; border-color: #d9a765; }
+  .drive-badge.hot { color: #b91c1c; border-color: #d99a9a; }
+  .stop .acts { display: flex; gap: 8px; margin-top: 5px; align-items: center; }
+  .stop .acts button {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 20px;
+    font-size: .7rem; padding: 2px 9px; color: var(--muted);
+  }
+  .stop .acts button.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .stop .acts button.gold { color: #a16207; border-color: #d9b765; background: #fdf6e3; }
+  .stop.visited-row .num { background: #ca8a04 !important; }
+  .stop .acts a.navgo {
+    text-decoration: none; border: 1px solid var(--line); border-radius: 20px;
+    font-size: .7rem; padding: 2px 9px; color: var(--muted); font-weight: 600;
+  }
+  .stop .acts a.navgo:hover { color: var(--accent); border-color: var(--accent); }
+  .day-head .chev { border: none; background: none; padding: 0 2px; color: var(--muted); font-size: .8rem; }
+  .day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .today-chip {
+    font-size: .6rem; font-weight: 800; color: #fff; background: var(--accent);
+    border-radius: 20px; padding: 2px 7px; letter-spacing: .06em; flex-shrink: 0;
+  }
+  .stops-count { padding: 8px 12px; font-size: .75rem; color: var(--muted); cursor: pointer; }
+  .stops-count:hover { color: var(--accent); }
+  #syncStatus { font-size: .7rem; color: var(--muted); }
+  .tripometer {
+    font-size: .72rem; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); border-radius: 20px; padding: 3px 10px;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .tripometer:empty { display: none; }
+  .stop.spin-glow { outline: 2px solid var(--accent); background: var(--accent-soft); border-radius: 8px; }
+  .stop-photo {
+    width: 58px; height: 58px; object-fit: cover; border-radius: 9px;
+    float: right; margin: 0 0 6px 8px; background: var(--bg);
+  }
+  .stop .detail { font-size: .74rem; color: var(--muted); margin-top: 2px; font-style: italic; }
+  .res-badge {
+    display: inline-block; font-size: .69rem; font-weight: 700;
+    border-radius: 20px; padding: 2px 9px; margin-top: 4px;
+  }
+  .res-badge.booked { color: #15803d; background: #ecfdf3; border: 1px solid #b5e0c4; }
+  .res-badge.pending { color: #b45309; background: #fef7e8; border: 1px solid #ecd3a1; }
+
+  #map { background: #0d1321; }
+  .map-style-btn {
+    font-size: 1rem; width: 34px; height: 34px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer;
+    box-shadow: 0 1px 5px rgba(0,0,0,.3); line-height: 1;
+  }
+  body.night .leaflet-popup-content-wrapper, body.night .leaflet-popup-tip {
+    background: #1c2130; color: #e8e8ef;
+  }
+  body.night .leaflet-popup-content a { color: #a294e0; }
+
+  /* ---- Journey view: the itinerary as an editorial travel journal ---- */
+  #quest {
+    flex: 1; overflow-y: auto; display: none; position: relative;
+    background:
+      radial-gradient(600px 400px at 12% 8%, rgba(194,117,81,.07), transparent 70%),
+      radial-gradient(700px 500px at 88% 30%, rgba(122,140,102,.08), transparent 70%),
+      linear-gradient(#fbf9f3, #f2ecdf);
+  }
+  #quest.on { display: block; }
+  body.quest-on #sidebar, body.quest-on #map { display: none !important; }
+  #quest svg { display: block; margin: 0 auto; max-width: 840px; width: 100%; height: auto; }
+  #questCard {
+    position: sticky; bottom: 14px; margin: 0 auto; width: min(430px, 92%);
+    background: rgba(255, 253, 248, .97); color: #3b3428; border: 1px solid #e2d9c4;
+    border-radius: 14px; padding: 14px 17px; box-shadow: 0 14px 44px rgba(90,75,50,.25);
+    backdrop-filter: blur(6px); display: none;
+  }
+  #questCard.on { display: block; }
+  #questCard .qc-name {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-weight: 700; font-size: 1.05rem;
+  }
+  #questCard .qc-desc { font-size: .79rem; color: #8d8371; font-style: italic; margin-top: 2px; }
+  #questCard .qc-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  #questCard .qc-row a, #questCard .qc-row button {
+    font-size: .75rem; font-weight: 700; border-radius: 20px; padding: 4px 13px;
+    border: 1px solid #d9cfb6; background: #f7f2e6; color: #6b6250;
+    text-decoration: none; cursor: pointer;
+  }
+  #questCard .qc-row .gold { color: #8a6d1f; border-color: #cbb26a; background: #f8f0da; }
+  #questCard img { width: 100%; max-height: 150px; object-fit: cover; border-radius: 10px; margin-top: 9px; }
+
+  dialog {
+    border: none; border-radius: var(--radius); padding: 18px;
+    width: min(480px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  dialog::backdrop { background: rgba(43,38,32,.45); }
+  dialog h3 { margin-bottom: 10px; font-size: 1rem; }
+  dialog label { font-size: .78rem; font-weight: 600; display: block; margin: 10px 0 4px; }
+  dialog input, dialog select, dialog textarea {
+    font: inherit; font-size: .85rem; width: 100%;
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px;
+  }
+  dialog .link-row { display: flex; gap: 6px; margin-bottom: 5px; }
+  dialog .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  .leaflet-popup-content { font-family: inherit; font-size: .82rem; }
+  .leaflet-popup-content b { font-size: .9rem; }
+  .day-marker {
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: .72rem;
+    border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  }
+  .day-marker span { transform: rotate(45deg); }
+
+  #toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; font-size: .82rem;
+    padding: 9px 16px; border-radius: 24px; opacity: 0; pointer-events: none;
+    transition: opacity .25s; z-index: 2000; max-width: 92vw;
+  }
+  #toast.show { opacity: 1; }
+
+  @media print {
+    header .spacer ~ *, .add-box, #map, .stop .ops, .stop .acts, .day-head .mini, #liveBadge { display: none !important; }
+    main { display: block; }
+    #sidebar { width: 100%; max-width: none; border: none; }
+    body { height: auto; }
+  }
+  @media (max-width: 760px) {
+    main { flex-direction: column; }
+    #sidebar { width: 100%; max-width: none; order: 2; flex: 1; }
+    #map { height: 38vh; flex: none; }
+    header { padding: 8px 12px; gap: 8px; }
+    header h1 input { width: 100%; }
+    button, .btn { padding: 9px 13px; }
+    .stop { padding: 11px 12px; }
+    .stop .acts button, .stop .acts a.navgo { padding: 5px 13px; font-size: .78rem; }
+    .stop .ops button { padding: 4px 8px; font-size: .9rem; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>📍 Plonk</b><small>friends plonk, we plan</small></div>
+  <h1><input id="tripTitle" value=""></h1>
+  <span id="tripometer" class="tripometer"></span>
+  <span id="liveBadge" title="Everyone with this link sees changes instantly">● LIVE</span>
+  <span id="syncStatus"></span>
+  <span class="who">planning as <b id="whoName" title="click to change your name">…</b></span>
+  <span class="spacer"></span>
+  <button id="btnQuest">✨ Journey view</button>
+  <button id="btnFollow" hidden title="Copy this trip into your own planner">⭐ Follow trip</button>
+  <button id="btnGoLive" class="primary" hidden>⚡ Go live</button>
+  <button id="btnShare" class="primary">🔗 Share trip link</button>
+  <button id="btnExport">⬇ Export JSON</button>
+  <button id="btnImport">⬆ Import</button>
+  <button id="btnPrint">🖨 Itinerary</button>
+  <input type="file" id="fileImport" accept=".json,.csv" hidden>
+</header>
+
+<main>
+  <div id="sidebar">
+    <div class="add-box">
+      <h2>➕ Add a place</h2>
+      <div class="row">
+        <input id="addInput" placeholder="Paste a Google Maps link, coordinates, or type a place name…">
+        <button id="btnAdd" class="primary">Add</button>
+      </div>
+      <div class="row">
+        <select id="addDay"></select>
+      </div>
+      <div class="geo-results" id="geoResults"></div>
+      <div class="hint">
+        Works with: full Google Maps URLs (containing coordinates), <code>lat, lng</code> pairs,
+        or a place-name search. Short links (<code>maps.app.goo.gl/…</code>) need to be opened in a
+        browser first — copy the full URL from the address bar and paste it here. After adding,
+        click ✎ on a stop to attach Instagram / TikTok / booking links and notes.
+      </div>
+    </div>
+    <div id="days"></div>
+    <button id="btnAddDay" style="width:100%">＋ Add a day</button>
+  </div>
+  <div id="map"></div>
+  <div id="quest">
+    <div id="questSvgHost"></div>
+    <div id="questCard"></div>
+  </div>
+</main>
+
+<dialog id="editDialog">
+  <h3>Edit stop</h3>
+  <form method="dialog" id="editForm">
+    <label>Name</label>
+    <input id="editName">
+    <label>Day</label>
+    <select id="editDaySel"></select>
+    <label>Links <span style="font-weight:400;color:var(--muted)">(Google Maps, Instagram, TikTok, booking pages — image URLs become the stop's photo)</span></label>
+    <div id="editLinks"></div>
+    <button type="button" id="btnAddLink" style="font-size:.75rem;margin-top:2px">＋ add link</button>
+    <label>Reservation</label>
+    <div style="display:flex;gap:6px">
+      <select id="resKind" style="flex:1">
+        <option value="">— none —</option>
+        <option value="hotel">🏨 Hotel</option>
+        <option value="dinner">🍽️ Dinner</option>
+        <option value="activity">🎫 Activity</option>
+        <option value="car">🚗 Car</option>
+      </select>
+      <select id="resStatus" style="flex:1">
+        <option value="booked">Booked ✓</option>
+        <option value="pending">Pending ⏳</option>
+      </select>
+    </div>
+    <input id="resNote" placeholder="time / confirmation # (e.g. 19:00, Booking #A1B2)" style="margin-top:5px">
+    <label>Notes</label>
+    <textarea id="editNotes" rows="3" placeholder="opening hours, what to order, parking tips…"></textarea>
+    <div class="actions">
+      <button type="button" id="btnDeleteStop" style="margin-right:auto;color:#b91c1c">Delete stop</button>
+      <button type="button" id="btnCancelEdit">Cancel</button>
+      <button type="submit" class="primary" id="btnSaveEdit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/supabase.js"></script>
+<script>
+"use strict";
+/* ------------------------------------------------------------------ *
+ * Trip Pin Planner
+ * Two modes:
+ *   LOCAL — trip lives in localStorage; share via URL-encoded snapshot
+ *           or Export/Import JSON. Works fully offline.
+ *   LIVE  — opened with ?trip=<uuid>: trip lives in Supabase; every
+ *           edit is written to the database and realtime change events
+ *           update everyone else's screen. "Go live" promotes a local
+ *           trip to a live one.
+ * ------------------------------------------------------------------ */
+
+const SB_URL = "https://wcncgckvrvlvbmqergvd.supabase.co";
+const SB_KEY = "sb_publishable_1grF-44ak6XLoHYzuNOTaQ_5zQxlXK7";
+
+const DAY_COLORS = ["#c2410c","#0e7490","#7c3aed","#15803d","#b45309","#be185d","#1d4ed8","#4d7c0f","#9f1239","#374151"];
+const STORE_KEY = "tpp.trip.v2";
+const NAME_KEY = "tpp.username";
+
+const uid = () => Math.random().toString(36).slice(2, 9);
+const $ = id => document.getElementById(id);
+
+const params = new URLSearchParams(location.search);
+const LIVE_TRIP_ID = params.get("trip");
+const LIVE = !!LIVE_TRIP_ID;
+const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+
+function seedTrip() {
+  const mk = (name, lat, lng, links, notes) =>
+    ({ id: uid(), name, lat, lng, links: links || [], notes: notes || "", addedBy: "starter" });
+  return {
+    title: "Sapporo Road Trip · 12–24 Oct",
+    days: [
+      { id: uid(), title: "Sun 12 Oct — Sapporo · Derek & Sean", stops: [
+        mk("Nijo Market", 43.0570, 141.3612, [], "Land + morning kaisendon run"),
+        mk("Odori Park & TV Tower", 43.0606, 141.3472, [], "Walk it off downtown"),
+        mk("Sapporo Beer Garden", 43.0713, 141.3697, [{ type: "reservation", kind: "dinner", status: "pending", note: "18:30 — book ahead" }], "Genghis Khan BBQ dinner"),
+        mk("Susukino", 43.0553, 141.3536, [], "Nightcap / ramen alley"),
+      ]},
+      { id: uid(), title: "Mon 13 Oct — Sapporo & Jozankei · Derek & Sean", stops: [
+        mk("Hokkaido Shrine", 43.0545, 141.3079, [], "Maruyama Park autumn stroll"),
+        mk("Shiroi Koibito Park", 43.0879, 141.2717),
+        mk("Jozankei Onsen", 42.9679, 141.1678, [], "Peak koyo season — day-use onsen, ~50 min drive"),
+        mk("Mt. Moiwa Ropeway", 43.0333, 141.3222, [], "Night view on the way back"),
+      ]},
+      { id: uid(), title: "Tue 14 Oct — Pickup → Noboribetsu · all 4", stops: [
+        mk("New Chitose Airport", 42.7752, 141.6923, [], "Collect Nina & Seth + rental car"),
+        mk("Lake Shikotsu", 42.7600, 141.3400, [], "Lakeside foliage stop, 30 min from airport"),
+        mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [{ type: "reservation", kind: "hotel", status: "pending", note: "onsen ryokan TBD" }], "Check into onsen ryokan, evening Hell Valley walk"),
+      ]},
+      { id: uid(), title: "Wed 15 Oct — Noboribetsu → Lake Toya · all 4", stops: [
+        mk("Usuzan Ropeway", 42.5430, 140.8280, [], "Volcano + caldera views"),
+        mk("Lake Toya", 42.6048, 140.8464, [], "Lakefront onsen stay — nightly fireworks run to end of Oct"),
+      ]},
+      { id: uid(), title: "Thu 16 Oct — Toya → Shakotan → Otaru · all 4", stops: [
+        mk("Niseko", 42.8048, 140.6874, [], "Coffee stop, Mt Yotei viewpoints"),
+        mk("Cape Kamui", 43.3360, 140.3430, [], "Shakotan-blue cliff walk + uni-don lunch nearby"),
+        mk("Otaru Canal", 43.1985, 140.9959, [], "Evening gaslight stroll — stay Otaru"),
+      ]},
+      { id: uid(), title: "Fri 17 Oct — Otaru → Yoichi → Furano · all 4", stops: [
+        mk("Sankaku Market", 43.1990, 140.9917, [], "Seafood breakfast"),
+        mk("Nikka Whisky Yoichi Distillery", 43.1912, 140.7852, [], "Book tasting ahead"),
+        mk("Ningle Terrace", 43.3187, 142.3819, [], "~3h drive; twilight craft huts — stay Furano"),
+      ]},
+      { id: uid(), title: "Sat 18 Oct — Biei loop → Asahikawa · all 4", stops: [
+        mk("Blue Pond (Aoiike)", 43.4839, 142.6270, [], "Go early to beat tour buses"),
+        mk("Shirahige Falls", 43.4740, 142.6360),
+        mk("Patchwork Road, Biei", 43.6000, 142.4300, [], "Rolling farm hills drive"),
+        mk("Shikisai-no-oka", 43.5387, 142.4785, [], "Autumn flower fields"),
+        mk("Asahikawa Ramen Village", 43.7910, 142.4086, [], "Shoyu ramen dinner — stay Asahikawa"),
+      ]},
+      { id: uid(), title: "Sun 19 Oct — Sounkyo → Sapporo · all 4", stops: [
+        mk("Sounkyo Gorge", 43.7280, 142.9480, [], "Ginga & Ryusei falls, ropeway koyo — or swap for Asahiyama Zoo"),
+        mk("Asahiyama Zoo", 43.7679, 142.4808, [], "Alternative to Sounkyo; then ~2h drive to Sapporo, farewell jingisukan dinner"),
+      ]},
+      { id: uid(), title: "Mon 20 Oct — Farewell · all 4, Derek & Sean fly out", stops: [
+        mk("Tanukikoji Shopping Street", 43.0574, 141.3517, [], "Souvenir run"),
+        mk("New Chitose Airport", 42.7752, 141.6923, [], "Drop car + Derek & Sean fly out"),
+      ]},
+      { id: uid(), title: "Tue 21–24 Oct — Nina & Seth solo ideas", stops: [
+        mk("Moerenuma Park", 43.1226, 141.4276, [], "Noguchi-designed park, rent bikes"),
+        mk("Sapporo Beer Museum", 43.0717, 141.3690),
+        mk("Okurayama Ski Jump", 43.0480, 141.2880, [], "City panorama from the jump tower"),
+        mk("Historical Village of Hokkaido", 43.0480, 141.5010, [], "Open-air museum in autumn woods"),
+        mk("Otaru Tenguyama Ropeway", 43.1770, 140.9740, [], "If Otaru deserves a second visit"),
+      ]},
+    ],
+  };
+}
+
+/* ---------- state ---------- */
+let trip = null;
+let userName = localStorage.getItem(NAME_KEY) || "";
+
+/* ---------- trip meta: votes + visited ----------
+ * If trip_stops has votes/visited columns (SYNC_META, feature-detected at
+ * fetch time), they sync through the database like everything else.
+ * Otherwise they fall back to per-device localStorage. */
+let SYNC_META = false;
+const metaKey = () => "tpp.meta." + (LIVE ? LIVE_TRIP_ID : "local");
+let meta = { votes: {}, visited: {} };
+try { Object.assign(meta, JSON.parse(localStorage.getItem(metaKey()) || "{}")); } catch (e) {}
+function saveMeta() { localStorage.setItem(metaKey(), JSON.stringify(meta)); render(); }
+/* Two vote tiers: level 1 = 🔥 want, level 2 = 💯 die-die must do. */
+const stopVotes = stop => (SYNC_META ? stop.votes : meta.votes[stop.id]) || {};
+const fireCount = stop => Object.values(stopVotes(stop)).filter(Boolean).length;
+const mustCount = stop => Object.values(stopVotes(stop)).filter(x => x === 2).length;
+const myVote = stop => stopVotes(stop)[userName || "anonymous"] || 0;
+const voteNames = stop => Object.entries(stopVotes(stop))
+  .map(([n, lv]) => avatar(n) + " " + n + (lv === 2 ? " 💯" : "")).join(", ");
+function setVote(stop, level) {
+  const k = userName || "anonymous";
+  const v = { ...stopVotes(stop) };
+  if (v[k] === level) delete v[k]; else v[k] = level;
+  if (LIVE && SYNC_META) {
+    stop.votes = v; render();
+    dbTry(sb.from("trip_stops").update({ votes: v }).eq("id", stop.id));
+  } else {
+    meta.votes[stop.id] = v; saveMeta();
+  }
+}
+const isVisited = stop => SYNC_META ? !!stop.visited : !!meta.visited[stop.id];
+function toggleVisited(stop) {
+  const next = !isVisited(stop);
+  if (LIVE && SYNC_META) {
+    stop.visited = next; render();
+    dbTry(sb.from("trip_stops").update({ visited: next }).eq("id", stop.id));
+  } else {
+    if (next) meta.visited[stop.id] = true; else delete meta.visited[stop.id];
+    saveMeta();
+  }
+}
+
+/* ---------- today detection (parsed from day titles like "Tue 14 Oct") ---------- */
+const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+function isToday(title) {
+  const m = title.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+  if (!m) return false;
+  const n = new Date();
+  return n.getDate() === +m[1] && n.getMonth() === MONTHS[m[2].toLowerCase()];
+}
+
+/* ---------- collapsed days ---------- */
+const collapseKey = () => "tpp.collapsed." + (LIVE ? LIVE_TRIP_ID : "local");
+let collapsed = new Set();
+try { collapsed = new Set(JSON.parse(localStorage.getItem(collapseKey()) || "[]")); } catch (e) {}
+function toggleCollapse(dayId) {
+  if (collapsed.has(dayId)) collapsed.delete(dayId); else collapsed.add(dayId);
+  localStorage.setItem(collapseKey(), JSON.stringify([...collapsed]));
+  render();
+}
+
+/* ---------- drive-time estimate ---------- */
+function haversineKm(a, b) {
+  const R = 6371, rad = x => x * Math.PI / 180;
+  const dLat = rad(b[0] - a[0]), dLng = rad(b[1] - a[1]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function driveMinutes(day) {
+  let km = 0;
+  for (let i = 1; i < day.stops.length; i++)
+    km += haversineKm([day.stops[i - 1].lat, day.stops[i - 1].lng], [day.stops[i].lat, day.stops[i].lng]);
+  // straight-line distance × road-winding factor, at rural average speed
+  return Math.round(km * 1.3 / 55 * 60);
+}
+/* Real road routing via the public OSRM server, cached per day-route;
+ * falls back to the haversine estimate offline. */
+let osrmCache = {};
+try { osrmCache = JSON.parse(localStorage.getItem("tpp.osrm") || "{}"); } catch (e) {}
+const osrmPending = new Set(), osrmFailed = new Set();
+const routableDay = day => day.stops.length >= 2 && !/idea|unassigned|wish|solo/i.test(day.title);
+const dayRouteKey = day => day.stops.map(s => s.lat.toFixed(4) + "," + s.lng.toFixed(4)).join(";");
+const dayRoute = day => routableDay(day) ? osrmCache[dayRouteKey(day)] : null;
+async function refreshRoutes() {
+  let updated = false;
+  for (const day of trip.days) {
+    if (!routableDay(day)) continue;
+    const key = dayRouteKey(day);
+    if (osrmCache[key] || osrmPending.has(key) || osrmFailed.has(key)) continue;
+    osrmPending.add(key);
+    try {
+      const coords = day.stops.map(s => s.lng + "," + s.lat).join(";");
+      const res = await fetch("https://router.project-osrm.org/route/v1/driving/" + coords + "?overview=simplified&geometries=geojson");
+      const j = await res.json();
+      if (j.code === "Ok" && j.routes && j.routes[0]) {
+        osrmCache[key] = {
+          minutes: Math.round(j.routes[0].duration / 60),
+          km: Math.round(j.routes[0].distance / 1000),
+          line: j.routes[0].geometry.coordinates.map(c => [c[1], c[0]]),
+        };
+        updated = true;
+      } else osrmFailed.add(key);
+    } catch (e) { osrmFailed.add(key); }
+    osrmPending.delete(key);
+  }
+  if (updated) {
+    try { localStorage.setItem("tpp.osrm", JSON.stringify(osrmCache)); } catch (e) {}
+    render();
+  }
+}
+function driveBadge(day) {
+  if (!routableDay(day)) return null;
+  const r = dayRoute(day);
+  const m = r ? r.minutes : driveMinutes(day);
+  if (m < 10) return null;
+  const h = Math.floor(m / 60), mm = m % 60;
+  const el = document.createElement("span");
+  el.className = "drive-badge" + (m > 270 ? " hot" : m > 180 ? " warn" : "");
+  el.textContent = "🚗 " + (r ? "" : "≈") + (h ? h + "h " : "") + (mm ? mm + "m" : "") + (r ? " · " + r.km + " km" : "");
+  el.title = r ? "Driving time via roads" : "Estimated driving time between stops";
+  return el;
+}
+
+/* ---------- crew presence (derived from day titles) ----------
+ * Crew A = Derek & Sean (12–20 Oct, red) · Crew B = Nina & Seth (14–24 Oct, blue) */
+const CREW_A = "#b0483f", CREW_B = "#3f5fa8";
+function crewDots(title) {
+  const t = title.toLowerCase();
+  const hasA = /crew a|derek|sean\b/.test(t);
+  const hasB = /crew b|nina|seth\b/.test(t);
+  let dots = null;
+  if (/all 4|all4|everyone/.test(t) || (hasA && hasB)) dots = [CREW_A, CREW_A, CREW_B, CREW_B];
+  else if (hasA) dots = [CREW_A, CREW_A];
+  else if (hasB) dots = [CREW_B, CREW_B];
+  if (!dots) return null;
+  const s = document.createElement("span");
+  s.className = "crew-dots";
+  s.title = dots.length === 4 ? "Derek, Sean, Nina & Seth" :
+    dots[0] === CREW_A ? "Derek & Sean" : "Nina & Seth";
+  dots.forEach(c => { const i = document.createElement("i"); i.style.background = c; s.appendChild(i); });
+  return s;
+}
+
+/* ---------- fun pack: avatars, trip-ometer, confetti, roulette ---------- */
+const AVATARS = ["🦊", "🐻", "🐧", "🦉", "🐯", "🦌", "🐙", "🐬", "🦜", "🐢"];
+function avatar(name) {
+  if (!name) return "";
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return AVATARS[h % AVATARS.length];
+}
+
+function tripDates() {
+  let min = null, max = null;
+  for (const d of trip.days) {
+    const m = d.title.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+    if (!m) continue;
+    const dt = new Date(new Date().getFullYear(), MONTHS[m[2].toLowerCase()], +m[1]);
+    if (!min || dt < min) min = dt;
+    if (!max || dt > max) max = dt;
+  }
+  return min && max ? { start: min, end: max } : null;
+}
+function renderTripometer() {
+  const el = $("tripometer");
+  const total = trip.days.reduce((a, d) => a + d.stops.length, 0);
+  const seen = trip.days.reduce((a, d) => a + d.stops.filter(isVisited).length, 0);
+  const r = tripDates();
+  if (!r) { el.textContent = ""; return; }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (today < r.start) {
+    const n = Math.round((r.start - today) / 864e5);
+    el.textContent = `🛫 ${n} day${n === 1 ? "" : "s"} to go`;
+  } else if (today > r.end) {
+    el.textContent = `🏁 ${seen}/${total} stops seen`;
+  } else {
+    const dayN = Math.round((today - r.start) / 864e5) + 1;
+    const len = Math.round((r.end - r.start) / 864e5) + 1;
+    el.textContent = `🗾 Day ${dayN} of ${len} · ${seen}/${total} seen`;
+  }
+}
+
+let confettiCanvas = null, confettiParts = [], confettiRaf = null;
+function confetti(x, y, n = 26) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (!confettiCanvas) {
+    confettiCanvas = document.createElement("canvas");
+    confettiCanvas.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:3000";
+    document.body.appendChild(confettiCanvas);
+  }
+  confettiCanvas.width = innerWidth; confettiCanvas.height = innerHeight;
+  const colors = ["#c2410c", "#0e7490", "#7c3aed", "#15803d", "#ca8a04", "#be185d"];
+  for (let i = 0; i < n; i++) confettiParts.push({
+    x, y, vx: (Math.random() - .5) * 7, vy: -Math.random() * 7 - 3, g: .25,
+    r: Math.random() * 4 + 2, c: colors[i % colors.length],
+    life: 70 + Math.random() * 30, rot: Math.random() * 6.3, vr: (Math.random() - .5) * .3,
+  });
+  if (!confettiRaf) confettiTick();
+}
+function confettiTick() {
+  const ctx = confettiCanvas.getContext("2d");
+  ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confettiParts = confettiParts.filter(p => p.life > 0);
+  for (const p of confettiParts) {
+    p.x += p.vx; p.y += p.vy; p.vy += p.g; p.life--; p.rot += p.vr;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.fillStyle = p.c; ctx.globalAlpha = Math.min(1, p.life / 30);
+    ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); ctx.restore();
+  }
+  confettiRaf = confettiParts.length ? requestAnimationFrame(confettiTick) : null;
+  if (!confettiParts.length) ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+}
+
+function spinDay(day) {
+  const els = [...document.querySelectorAll(`[data-day-id="${day.id}"] .stop`)];
+  if (els.length < 2) return;
+  let i = Math.floor(Math.random() * els.length), delay = 70;
+  const steps = 12 + Math.floor(Math.random() * els.length);
+  let n = 0;
+  (function tick() {
+    els.forEach(e => e.classList.remove("spin-glow"));
+    els[i % els.length].classList.add("spin-glow");
+    if (++n < steps) { i++; delay *= 1.16; setTimeout(tick, delay); return; }
+    const winner = day.stops[i % els.length];
+    const r = els[i % els.length].getBoundingClientRect();
+    confetti(r.left + r.width / 2, r.top + 16, 20);
+    toast(`🎯 ${winner.name}!`);
+    map.setView([winner.lat, winner.lng], 13);
+    setTimeout(() => els.forEach(e => e.classList.remove("spin-glow")), 3000);
+  })();
+}
+
+const PLACEHOLDERS = [
+  "Paste a Google Maps link, or just type 'ramen'…",
+  "Found something on a reel? Drop the maps link here",
+  "Where does Seth want to eat? 👀",
+  "Type 'onsen' — you know you want to",
+  "43.0618, 141.3545 works too, map nerds",
+];
+setInterval(() => {
+  const inp = $("addInput");
+  if (inp && !inp.value && document.activeElement !== inp)
+    inp.placeholder = PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)];
+}, 6000);
+const EMPTY_DAY = ["Nothing yet — someone's slacking 👀", "A blank day is a dare.", "Free day… for now."];
+
+/* ---------- visuals + details: Wikipedia thumbnails & descriptions ---------- */
+let wikiCache = {};
+try { wikiCache = JSON.parse(localStorage.getItem("tpp.wiki") || "{}"); } catch (e) {}
+const wikiPending = new Set();
+const wikiInfo = stop => wikiCache[stop.name] || null;
+async function refreshWiki() {
+  let updated = false;
+  const names = [...new Set(trip.days.flatMap(d => d.stops.map(s => s.name)))]
+    .filter(n => !(n in wikiCache) && !wikiPending.has(n) && !/^pinned/i.test(n));
+  for (const name of names.slice(0, 8)) {
+    wikiPending.add(name);
+    try {
+      let res = await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(name));
+      if (!res.ok && /\(/.test(name))
+        res = await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(name.replace(/\s*\(.*\)/, "")));
+      if (res.ok) {
+        const j = await res.json();
+        wikiCache[name] = {
+          img: (j.thumbnail && j.thumbnail.source) || null,
+          desc: j.description || null,
+        };
+      } else wikiCache[name] = null;
+    } catch (e) { wikiCache[name] = null; }
+    wikiPending.delete(name);
+    updated = true;
+  }
+  if (updated) {
+    try { localStorage.setItem("tpp.wiki", JSON.stringify(wikiCache)); } catch (e) {}
+    render();
+  }
+}
+
+/* ---------- reservations & photos (stored inside the synced links array) ----------
+ * links entries are either URL strings or {type:"reservation", kind, status, note}. */
+const strLinks = stop => (stop.links || []).filter(u => typeof u === "string");
+const isImageUrl = u => /\.(jpe?g|png|webp|gif|avif)(\?|#|$)/i.test(u);
+const getReservation = stop => (stop.links || []).find(u => u && typeof u === "object" && u.type === "reservation") || null;
+function resBadgeHtml(stop) {
+  const r = getReservation(stop);
+  if (!r) return "";
+  const icons = { hotel: "🏨", dinner: "🍽️", activity: "🎫", car: "🚗" };
+  const booked = r.status === "booked";
+  return `<span class="res-badge ${booked ? "booked" : "pending"}" title="${esc(r.note || "")}">` +
+    `${icons[r.kind] || "📌"} ${booked ? "booked ✓" : "pending ⏳"}${r.note ? " · " + esc(r.note) : ""}</span>`;
+}
+function stopPhoto(stop) {
+  const own = strLinks(stop).find(isImageUrl);
+  if (own) return own;
+  const w = wikiInfo(stop);
+  return w && w.img ? w.img : null;
+}
+
+function loadLocalTrip() {
+  const m = location.hash.match(/#trip=(.+)/);
+  if (m) {
+    try {
+      const shared = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));
+      history.replaceState(null, "", location.pathname);
+      toast("Loaded shared trip — your additions stay on this device until you share back");
+      return shared;
+    } catch (e) { console.warn("Bad share link", e); }
+  }
+  const raw = localStorage.getItem(STORE_KEY);
+  if (raw) { try { return JSON.parse(raw); } catch (e) {} }
+  return seedTrip();
+}
+
+/* ---------- live data layer (Supabase) ---------- */
+const cacheKey = () => "tpp.cache." + LIVE_TRIP_ID;
+function setSync(text) { $("syncStatus").textContent = text; }
+
+async function fetchLiveTrip() {
+  const [t, d, s] = await Promise.all([
+    sb.from("trip_trips").select("*").eq("id", LIVE_TRIP_ID).single(),
+    sb.from("trip_days").select("*").eq("trip_id", LIVE_TRIP_ID).order("position").order("id"),
+    sb.from("trip_stops").select("*").eq("trip_id", LIVE_TRIP_ID).order("position").order("id"),
+  ]);
+  if (t.error) throw t.error;
+  SYNC_META = (s.data || []).length > 0 && ("votes" in s.data[0]);
+  const days = (d.data || []).map(day => ({
+    id: day.id, title: day.title,
+    stops: (s.data || []).filter(x => x.day_id === day.id).map(x => ({
+      id: x.id, name: x.name, lat: x.lat, lng: x.lng,
+      links: x.links || [], notes: x.notes || "", addedBy: x.added_by || "",
+      votes: x.votes || {}, visited: !!x.visited,
+    })),
+  }));
+  const result = { id: t.data.id, title: t.data.title, days };
+  try { localStorage.setItem(cacheKey(), JSON.stringify(result)); } catch (e) {}
+  setSync("synced " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  return result;
+}
+
+let refreshTimer = null;
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    try { trip = await fetchLiveTrip(); render(); }
+    catch (e) { console.warn(e); }
+  }, 200);
+}
+
+function subscribeLive() {
+  const opts = table => ({
+    event: "*", schema: "public", table,
+    filter: "trip_id=eq." + LIVE_TRIP_ID,
+  });
+  sb.channel("trip-" + LIVE_TRIP_ID)
+    .on("postgres_changes", { event: "*", schema: "public", table: "trip_trips", filter: "id=eq." + LIVE_TRIP_ID }, scheduleRefresh)
+    .on("postgres_changes", opts("trip_days"), scheduleRefresh)
+    .on("postgres_changes", opts("trip_stops"), scheduleRefresh)
+    .subscribe();
+}
+
+async function dbTry(promise, okMsg) {
+  const { error } = await promise;
+  if (error) { console.warn(error); toast("Sync failed: " + error.message); setSync("⚠ offline — retrying on next change"); return false; }
+  if (okMsg) toast(okMsg);
+  scheduleRefresh();
+  return true;
+}
+
+/* ---------- mutations (branch on mode) ---------- */
+function persistLocal() { localStorage.setItem(STORE_KEY, JSON.stringify(trip)); render(); }
+
+function setTripTitle(title) {
+  trip.title = title;
+  if (LIVE) dbTry(sb.from("trip_trips").update({ title }).eq("id", LIVE_TRIP_ID));
+  else persistLocal();
+}
+function addDayM() {
+  const title = "Day " + (trip.days.length + 1);
+  if (LIVE) dbTry(sb.from("trip_days").insert({ trip_id: LIVE_TRIP_ID, title, position: trip.days.length }));
+  else { trip.days.push({ id: uid(), title, stops: [] }); persistLocal(); }
+}
+function renameDay(day, title) {
+  day.title = title;
+  if (LIVE) dbTry(sb.from("trip_days").update({ title }).eq("id", day.id));
+  else persistLocal();
+}
+function removeDay(day) {
+  if (LIVE) dbTry(sb.from("trip_days").delete().eq("id", day.id));
+  else { trip.days = trip.days.filter(d => d.id !== day.id); persistLocal(); }
+}
+function addStopM(dayId, { name, lat, lng, links }) {
+  const day = trip.days.find(d => d.id === dayId) || trip.days[trip.days.length - 1];
+  if (LIVE) {
+    dbTry(sb.from("trip_stops").insert({
+      trip_id: LIVE_TRIP_ID, day_id: day.id, name, lat, lng,
+      links: links || [], added_by: userName, position: day.stops.length,
+    }), `Added "${name}" to ${day.title}`);
+  } else {
+    day.stops.push({ id: uid(), name, lat, lng, links: links || [], notes: "", addedBy: userName });
+    persistLocal();
+    toast(`Added "${name}" to ${day.title}`);
+  }
+  map.setView([lat, lng], Math.max(map.getZoom(), 11));
+}
+function updateStopM(day, stop, fields, newDayId) {
+  Object.assign(stop, fields);
+  if (LIVE) {
+    const patch = { name: fields.name, notes: fields.notes, links: fields.links };
+    if (newDayId && newDayId !== day.id) {
+      const target = trip.days.find(d => d.id === newDayId);
+      patch.day_id = newDayId;
+      patch.position = target ? target.stops.length : 0;
+    }
+    dbTry(sb.from("trip_stops").update(patch).eq("id", stop.id));
+  } else {
+    if (newDayId && newDayId !== day.id) {
+      day.stops = day.stops.filter(s => s.id !== stop.id);
+      trip.days.find(d => d.id === newDayId).stops.push(stop);
+    }
+    persistLocal();
+  }
+}
+function deleteStopM(day, stop) {
+  if (LIVE) dbTry(sb.from("trip_stops").delete().eq("id", stop.id));
+  else { day.stops = day.stops.filter(s => s.id !== stop.id); persistLocal(); }
+}
+function moveStop(day, i, delta) {
+  const j = i + delta;
+  if (j < 0 || j >= day.stops.length) return;
+  const a = day.stops[i], b = day.stops[j];
+  [day.stops[i], day.stops[j]] = [b, a];
+  if (LIVE) {
+    Promise.all([
+      sb.from("trip_stops").update({ position: j }).eq("id", a.id),
+      sb.from("trip_stops").update({ position: i }).eq("id", b.id),
+    ]).then(scheduleRefresh);
+    render();
+  } else persistLocal();
+}
+
+/* ---------- go live: promote local trip to Supabase ---------- */
+async function goLive() {
+  if (!sb) { toast("Supabase client failed to load"); return; }
+  if (!confirm("Publish this trip so everyone with the link can edit it live?")) return;
+  try {
+    const t = await sb.from("trip_trips").insert({ title: trip.title }).select().single();
+    if (t.error) throw t.error;
+    for (let di = 0; di < trip.days.length; di++) {
+      const day = trip.days[di];
+      const d = await sb.from("trip_days").insert({ trip_id: t.data.id, title: day.title, position: di }).select().single();
+      if (d.error) throw d.error;
+      if (day.stops.length) {
+        const rows = day.stops.map((s, si) => ({
+          trip_id: t.data.id, day_id: d.data.id, name: s.name, lat: s.lat, lng: s.lng,
+          links: s.links || [], notes: s.notes || "", added_by: s.addedBy || "", position: si,
+        }));
+        const r = await sb.from("trip_stops").insert(rows);
+        if (r.error) throw r.error;
+      }
+    }
+    location.search = "?trip=" + t.data.id;
+  } catch (e) {
+    console.warn(e);
+    toast("Couldn't go live: " + e.message);
+  }
+}
+
+/* ---------- link / coordinate parsing ---------- */
+function parseGoogleMapsUrl(text) {
+  let m = text.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (m) return { lat: +m[1], lng: +m[2] };
+  m = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) return { lat: +m[1], lng: +m[2] };
+  m = text.match(/[?&](?:q|ll|query)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/);
+  if (m) return { lat: +m[1], lng: +m[2] };
+  return null;
+}
+function parseLatLng(text) {
+  const m = text.trim().match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+  if (m) {
+    const lat = +m[1], lng = +m[2];
+    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng };
+  }
+  return null;
+}
+function nameFromGoogleMapsUrl(url) {
+  const m = url.match(/\/place\/([^/@?]+)/);
+  if (m) return decodeURIComponent(m[1].replace(/\+/g, " "));
+  return null;
+}
+function linkLabel(url) {
+  try {
+    const h = new URL(url).hostname.replace(/^www\./, "");
+    if (h.includes("instagram")) return "📷 Instagram";
+    if (h.includes("tiktok")) return "🎵 TikTok";
+    if (h.includes("google") && (url.includes("/maps") || h.startsWith("maps"))) return "📍 Google Maps";
+    if (h.includes("goo.gl")) return "📍 Google Maps";
+    if (h.includes("youtube") || h.includes("youtu.be")) return "▶ YouTube";
+    if (h.includes("tabelog")) return "🍜 Tabelog";
+    if (h.includes("booking") || h.includes("airbnb") || h.includes("agoda")) return "🏨 Stay";
+    return "🌐 " + h;
+  } catch (e) { return "🌐 link"; }
+}
+
+/* ---------- add flow ---------- */
+async function handleAdd() {
+  const input = $("addInput");
+  const text = input.value.trim();
+  const dayId = $("addDay").value;
+  if (!text) return;
+
+  if (/maps\.app\.goo\.gl|goo\.gl\/maps/.test(text)) {
+    toast("That's a shortened link — open it in a browser and paste the full URL from the address bar");
+    return;
+  }
+
+  let coords = null, name = null, links = [];
+  if (/^https?:\/\//.test(text)) {
+    coords = parseGoogleMapsUrl(text);
+    name = nameFromGoogleMapsUrl(text) || "Pinned place";
+    links = [text];
+    if (!coords) { toast("No coordinates found in that URL — try a maps.google.com/maps?q=… or /place/ URL"); return; }
+  } else if ((coords = parseLatLng(text))) {
+    name = "Pinned spot " + coords.lat.toFixed(3) + ", " + coords.lng.toFixed(3);
+  } else {
+    await geocodeSearch(text, dayId);
+    return;
+  }
+  addStopM(dayId, { name, ...coords, links });
+  input.value = "";
+}
+
+async function geocodeSearch(query, dayId) {
+  const box = $("geoResults");
+  box.innerHTML = '<span class="hint">Searching…</span>';
+  try {
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" +
+      encodeURIComponent(query + " Hokkaido Japan");
+    const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+    let results = await res.json();
+    if (!results.length) {
+      const res2 = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" + encodeURIComponent(query));
+      results = await res2.json();
+    }
+    if (!results.length) { box.innerHTML = '<span class="hint">No matches — paste a Google Maps URL or "lat, lng" instead.</span>'; return; }
+    box.innerHTML = "";
+    results.forEach(r => {
+      const b = document.createElement("button");
+      b.textContent = "📍 " + r.display_name;
+      b.onclick = () => {
+        addStopM(dayId, { name: query, lat: +r.lat, lng: +r.lon, links: [] });
+        $("addInput").value = "";
+        box.innerHTML = "";
+      };
+      box.appendChild(b);
+    });
+  } catch (e) {
+    box.innerHTML = '<span class="hint">Search unavailable — paste a Google Maps URL or "lat, lng" instead.</span>';
+  }
+}
+
+/* ---------- rendering ---------- */
+let map, layerGroup, tileLayer = null;
+
+/* Night mode: CARTO Dark Matter with neon routes. Day: CARTO Voyager. */
+const BASEMAPS = {
+  night: { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" },
+  day: { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" },
+};
+let basemap = localStorage.getItem("tpp.basemap") || "night";
+function setBasemap(mode) {
+  basemap = mode;
+  localStorage.setItem("tpp.basemap", mode);
+  if (tileLayer) map.removeLayer(tileLayer);
+  tileLayer = L.tileLayer(BASEMAPS[mode].url, {
+    maxZoom: 19, subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  }).addTo(map);
+  document.body.classList.toggle("night", mode === "night");
+  const b = document.querySelector(".map-style-btn");
+  if (b) b.textContent = mode === "night" ? "☀️" : "🌙";
+}
+
+function dayColor(i) { return DAY_COLORS[i % DAY_COLORS.length]; }
+
+function render() {
+  $("tripTitle").value = trip.title;
+  $("whoName").textContent = userName ? avatar(userName) + " " + userName : "anonymous";
+
+  const daySel = $("addDay");
+  const prevSel = daySel.value;
+  daySel.innerHTML = trip.days.map(d => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  if ([...daySel.options].some(o => o.value === prevSel)) daySel.value = prevSel;
+
+  const container = $("days");
+  container.innerHTML = "";
+  trip.days.forEach((day, di) => {
+    const color = dayColor(di);
+    const today = isToday(day.title);
+    const isCollapsed = collapsed.has(day.id) && !today;
+    const el = document.createElement("div");
+    el.className = "day" + (today ? " today" : "");
+    el.dataset.dayId = day.id;
+    const head = document.createElement("div");
+    head.className = "day-head";
+    const chev = document.createElement("button");
+    chev.className = "chev"; chev.textContent = isCollapsed ? "▸" : "▾";
+    chev.title = isCollapsed ? "Expand day" : "Collapse day";
+    chev.onclick = () => toggleCollapse(day.id);
+    head.appendChild(chev);
+    head.insertAdjacentHTML("beforeend", `<span class="day-dot" style="background:${color}"></span>`);
+    const titleInput = document.createElement("input");
+    titleInput.value = day.title;
+    titleInput.onchange = () => renameDay(day, titleInput.value);
+    head.appendChild(titleInput);
+    if (today) head.insertAdjacentHTML("beforeend", `<span class="today-chip">TODAY</span>`);
+    const dots = crewDots(day.title);
+    if (dots) head.appendChild(dots);
+    const drive = driveBadge(day);
+    if (drive) head.appendChild(drive);
+    if (day.stops.length >= 2) {
+      const spin = document.createElement("button");
+      spin.className = "mini"; spin.textContent = "🎲"; spin.title = "Can't decide? Spin!";
+      spin.onclick = () => spinDay(day);
+      head.appendChild(spin);
+    }
+    const delBtn = document.createElement("button");
+    delBtn.className = "mini"; delBtn.textContent = "✕"; delBtn.title = "Remove day";
+    delBtn.onclick = () => {
+      if (day.stops.length && !confirm(`Remove "${day.title}" and its ${day.stops.length} stop(s)?`)) return;
+      removeDay(day);
+    };
+    head.appendChild(delBtn);
+    el.appendChild(head);
+
+    if (isCollapsed) {
+      const c = document.createElement("div");
+      c.className = "stops-count";
+      c.textContent = `▸ ${day.stops.length} stop${day.stops.length === 1 ? "" : "s"}`;
+      c.onclick = () => toggleCollapse(day.id);
+      el.appendChild(c);
+      container.appendChild(el);
+      return;
+    }
+
+    if (!day.stops.length) {
+      const e = document.createElement("div");
+      e.className = "empty-day";
+      e.textContent = EMPTY_DAY[di % EMPTY_DAY.length];
+      el.appendChild(e);
+    }
+    day.stops.forEach((stop, si) => {
+      const s = document.createElement("div");
+      const visited = isVisited(stop);
+      s.className = "stop" + (visited ? " visited-row" : "");
+      s.dataset.stopId = stop.id;
+      const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
+        `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join("");
+      const fires = fireCount(stop), musts = mustCount(stop);
+      const photo = stopPhoto(stop);
+      const wiki = wikiInfo(stop);
+      s.innerHTML = `
+        <span class="num" style="background:${color}">${visited ? "✓" : si + 1}</span>
+        <div class="body">
+          ${photo ? `<img class="stop-photo" loading="lazy" alt="" src="${esc(photo)}" onerror="this.remove()">` : ""}
+          <div class="name"></div>
+          ${wiki && wiki.desc ? `<div class="detail">${esc(wiki.desc)}</div>` : ""}
+          <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}${stop.addedBy ? " · added by " + esc(avatar(stop.addedBy) + " " + stop.addedBy) : ""}</div>
+          ${resBadgeHtml(stop)}
+          ${links ? `<div class="links">${links}</div>` : ""}
+          ${stop.notes ? `<div class="notes">${esc(stop.notes)}</div>` : ""}
+          <div class="acts">
+            <button data-op="vote" class="${myVote(stop) === 1 ? "on" : ""}" title="${esc(voteNames(stop)) || "Vote this stop up"}">🔥${fires ? " " + fires : ""}</button>
+            <button data-op="must" class="${myVote(stop) === 2 ? "on" : ""}" title="Die-die must do — non-negotiable!">💯${musts ? " " + musts : ""}</button>
+            <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
+            <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Navigate here in Google Maps">🧭 Go</a>
+          </div>
+        </div>
+        <div class="ops">
+          <button title="Edit" data-op="edit">✎</button>
+          <button title="Move up" data-op="up">↑</button>
+          <button title="Move down" data-op="down">↓</button>
+        </div>`;
+      s.querySelector(".name").textContent = stop.name;
+      s.querySelector(".body").style.cursor = "pointer";
+      s.querySelector(".body").onclick = (ev) => {
+        if (ev.target.tagName === "A" || ev.target.tagName === "BUTTON") return;
+        map.setView([stop.lat, stop.lng], 13);
+      };
+      s.querySelector('[data-op=vote]').onclick = () => setVote(stop, 1);
+      s.querySelector('[data-op=must]').onclick = (ev) => {
+        if (myVote(stop) !== 2) confetti(ev.clientX, ev.clientY, 14);
+        setVote(stop, 2);
+      };
+      s.querySelector('[data-op=visited]').onclick = (ev) => {
+        const wasVisited = isVisited(stop);
+        toggleVisited(stop);
+        if (!wasVisited) {
+          confetti(ev.clientX, ev.clientY);
+          if (day.stops.every(st => st === stop || isVisited(st)) && day.stops.length > 1) {
+            setTimeout(() => { confetti(innerWidth / 2, innerHeight / 3, 60); toast(`🎉 ${day.title} — complete!`); }, 300);
+          }
+        }
+      };
+      s.querySelector('[data-op=edit]').onclick = () => openEdit(day, stop);
+      s.querySelector('[data-op=up]').onclick = () => moveStop(day, si, -1);
+      s.querySelector('[data-op=down]').onclick = () => moveStop(day, si, 1);
+      el.appendChild(s);
+    });
+    container.appendChild(el);
+  });
+
+  renderTripometer();
+  renderMap();
+  renderQuest();
+  refreshRoutes();
+  refreshWiki();
+}
+
+function renderMap() {
+  layerGroup.clearLayers();
+  const allPts = [];
+  trip.days.forEach((day, di) => {
+    const color = dayColor(di);
+    const pts = [];
+    day.stops.forEach((stop, si) => {
+      const visited = isVisited(stop);
+      const glowColor = visited ? "#ca8a04" : color;
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="day-marker" style="background:${glowColor};width:26px;height:26px;box-shadow:0 2px 6px rgba(0,0,0,.4),0 0 12px ${glowColor}${visited ? ";border-color:#fde68a" : ""}"><span>${visited ? "✓" : si + 1}</span></div>`,
+        iconSize: [26, 26], iconAnchor: [13, 26],
+      });
+      const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
+        `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join(" · ");
+      const photo = stopPhoto(stop);
+      const marker = L.marker([stop.lat, stop.lng], { icon })
+        .bindPopup(`<b>${esc(stop.name)}</b><br><span style="color:${color}">${esc(day.title)}</span>` +
+          (photo ? `<br><img src="${esc(photo)}" alt="" onerror="this.remove()" style="width:180px;max-height:110px;object-fit:cover;border-radius:8px;margin-top:5px">` : "") +
+          (resBadgeHtml(stop) ? "<br>" + resBadgeHtml(stop) : "") +
+          (links ? "<br>" + links : "") +
+          (stop.notes ? `<br><i>${esc(stop.notes)}</i>` : ""));
+      layerGroup.addLayer(marker);
+      pts.push([stop.lat, stop.lng]);
+      allPts.push([stop.lat, stop.lng]);
+    });
+    if (pts.length > 1 && !/idea|unassigned|wish|solo/i.test(day.title)) {
+      const r = dayRoute(day);
+      // wide soft underlay + bright core = neon glow, especially on the night map
+      if (r && r.line) {
+        layerGroup.addLayer(L.polyline(r.line, { color, weight: 9, opacity: .22 }));
+        layerGroup.addLayer(L.polyline(r.line, { color, weight: 3, opacity: .95 }));
+      } else {
+        layerGroup.addLayer(L.polyline(pts, { color, weight: 8, opacity: .15 }));
+        layerGroup.addLayer(L.polyline(pts, { color, weight: 3, opacity: .7, dashArray: "6 8" }));
+      }
+    }
+  });
+  if (allPts.length && !map._userMoved) map.fitBounds(allPts, { padding: [40, 40] });
+}
+
+/* ---------- Journey view: the itinerary as one glowing route ---------- */
+let questOn = false;
+const TRAVELERS = ["Derek", "Sean", "Nina", "Seth"];
+
+function renderQuest() {
+  if (!questOn) return;
+  const W = 840, AMP = 250, CX = W / 2;
+  const nodes = [];   // {x, y, stop, day, di, si, globalIdx}
+  const banners = []; // {y, day, di}
+  let y = 128, g = 0;
+  trip.days.forEach((day, di) => {
+    banners.push({ y, day, di });
+    y += 74;
+    day.stops.forEach((stop, si) => {
+      nodes.push({ x: CX + AMP * Math.sin(g * 1.05 + 1.2), y, stop, day, di, si, g });
+      y += 96; g++;
+    });
+    y += 18;
+  });
+  const H = y + 60;
+
+  const total = nodes.length;
+  const seen = nodes.filter(n => isVisited(n.stop)).length;
+  const dates = tripDates();
+  const fmt = d => d.getDate() + " " + ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+  const subtitle = [
+    dates ? fmt(dates.start) + " – " + fmt(dates.end) : null,
+    total + " stops",
+    TRAVELERS.length + " travelers",
+    seen ? seen + " visited" : null,
+  ].filter(Boolean).join("  ·  ").toUpperCase();
+
+  // smooth path through the nodes
+  let path = "";
+  if (nodes.length) {
+    path = `M ${nodes[0].x} ${nodes[0].y}`;
+    for (let i = 1; i < nodes.length; i++) {
+      const p = nodes[i - 1], q = nodes[i];
+      path += ` C ${p.x} ${(p.y + q.y) / 2}, ${q.x} ${(p.y + q.y) / 2}, ${q.x} ${q.y}`;
+    }
+  }
+
+  const INK = "#3b3428", MUTED = "#8d8371", RULE = "#d8cdb5";
+  const serif = `font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif"`;
+
+  // photo medallion clip paths
+  let defs = "<defs>";
+  nodes.forEach((n, i) => { defs += `<clipPath id="qc${i}"><circle cx="${n.x}" cy="${n.y}" r="26"/></clipPath>`; });
+  defs += "</defs>";
+
+  let out = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Trip journey">
+    ${defs}
+    <text x="${CX}" y="44" text-anchor="middle" font-size="26" font-weight="600" fill="${INK}" ${serif}>${esc(trip.title)}</text>
+    <text x="${CX}" y="68" text-anchor="middle" font-size="10.5" fill="${MUTED}" letter-spacing="2.5">${subtitle}</text>
+    <path d="${path}" fill="none" stroke="${RULE}" stroke-width="2" stroke-dasharray="1 9" stroke-linecap="round"/>`;
+
+  banners.forEach(b => {
+    const r = dayRoute(b.day);
+    const mins = routableDay(b.day) ? (r ? r.minutes : driveMinutes(b.day)) : 0;
+    const driveTxt = mins >= 10 ? `${r ? "" : "≈"}${Math.floor(mins / 60) ? Math.floor(mins / 60) + " H " : ""}${mins % 60 ? mins % 60 + " MIN" : ""} DRIVE` : "";
+    out += `<g>
+      <line x1="${CX - 260}" y1="${b.y - 33}" x2="${CX - 170}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
+      <line x1="${CX + 170}" y1="${b.y - 33}" x2="${CX + 260}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
+      <circle cx="${CX - 158}" cy="${b.y - 33}" r="3.5" fill="${dayColor(b.di)}"/>
+      <text x="${CX}" y="${b.y - 28}" text-anchor="middle" font-size="14.5" font-style="italic" fill="${INK}" ${serif}>${esc(b.day.title.length > 42 ? b.day.title.slice(0, 41) + "…" : b.day.title)}</text>
+      ${driveTxt ? `<text x="${CX}" y="${b.y - 11}" text-anchor="middle" font-size="8.5" fill="${MUTED}" letter-spacing="2">${driveTxt}</text>` : ""}</g>`;
+  });
+
+  nodes.forEach((n, i) => {
+    const visited = isVisited(n.stop);
+    const color = dayColor(n.di);
+    const musts = mustCount(n.stop), fires = fireCount(n.stop);
+    const res = getReservation(n.stop);
+    const photo = stopPhoto(n.stop);
+    const wiki = wikiInfo(n.stop);
+    const labelLeft = n.x > CX;
+    const lx = labelLeft ? n.x - 40 : n.x + 40;
+    const anchor = labelLeft ? "end" : "start";
+    const desc = wiki && wiki.desc ? (wiki.desc.length > 34 ? wiki.desc.slice(0, 33) + "…" : wiki.desc) : "";
+    out += `<g class="qnode" data-node="${i}" style="cursor:pointer">
+      <circle cx="${n.x}" cy="${n.y}" r="27.5" fill="#fffdf8" stroke="${visited ? "#c2a44e" : RULE}" stroke-width="${visited ? 2.5 : 1.5}"/>
+      <circle cx="${n.x}" cy="${n.y}" r="26" fill="${color}" opacity=".18"/>
+      ${photo ? `<image href="${esc(photo)}" x="${n.x - 26}" y="${n.y - 26}" width="52" height="52" clip-path="url(#qc${i})" preserveAspectRatio="xMidYMid slice"/>` : ""}
+      <circle cx="${n.x + 19}" cy="${n.y + 19}" r="10" fill="${visited ? "#c2a44e" : color}" stroke="#fffdf8" stroke-width="2"/>
+      <text x="${n.x + 19}" y="${n.y + 22.5}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff">${visited ? "✓" : n.si + 1}</text>
+      ${res ? `<text x="${n.x - 26}" y="${n.y - 22}" font-size="13">${res.kind === "hotel" ? "🏨" : res.kind === "dinner" ? "🍽️" : res.kind === "activity" ? "🎫" : "🚗"}</text>` : ""}
+      <text x="${lx}" y="${n.y - 1}" text-anchor="${anchor}" font-size="14" font-weight="600" fill="${INK}" ${serif}>${esc(n.stop.name.length > 26 ? n.stop.name.slice(0, 25) + "…" : n.stop.name)}</text>
+      ${desc ? `<text x="${lx}" y="${n.y + 15}" text-anchor="${anchor}" font-size="10" font-style="italic" fill="${MUTED}">${esc(desc)}</text>` : ""}
+      ${(musts || fires) ? `<text x="${lx}" y="${n.y + (desc ? 30 : 15)}" text-anchor="${anchor}" font-size="9.5" fill="${musts ? "#b0483f" : MUTED}" letter-spacing="1.5">${musts ? "MUST-DO" + (musts > 1 ? " ×" + musts : "") : ""}${musts && fires ? "  ·  " : ""}${fires ? "♡ " + fires : ""}</text>` : ""}
+    </g>`;
+  });
+  out += `</svg>`;
+  $("questSvgHost").innerHTML = out;
+
+  document.querySelectorAll(".qnode").forEach(el => {
+    el.addEventListener("click", () => showQuestCard(nodes[+el.dataset.node]));
+  });
+}
+
+function showQuestCard(n) {
+  const card = $("questCard");
+  const wiki = wikiInfo(n.stop);
+  const photo = stopPhoto(n.stop);
+  const visited = isVisited(n.stop);
+  card.innerHTML = `
+    <div class="qc-name">${esc(n.stop.name)}</div>
+    ${wiki && wiki.desc ? `<div class="qc-desc">${esc(wiki.desc)}</div>` : ""}
+    ${resBadgeHtml(n.stop)}
+    ${n.stop.notes ? `<div class="qc-desc">${esc(n.stop.notes)}</div>` : ""}
+    ${photo ? `<img src="${esc(photo)}" alt="" onerror="this.remove()">` : ""}
+    <div class="qc-row">
+      <button data-q="visit" class="${visited ? "gold" : ""}">${visited ? "✓ visited" : "mark visited"}</button>
+      <a href="https://www.google.com/maps/dir/?api=1&destination=${n.stop.lat},${n.stop.lng}" target="_blank" rel="noopener">🧭 Navigate</a>
+      <button data-q="close" style="margin-left:auto">✕</button>
+    </div>`;
+  card.classList.add("on");
+  card.querySelector("[data-q=visit]").onclick = () => {
+    toggleVisited(n.stop);
+    card.classList.remove("on");
+  };
+  card.querySelector("[data-q=close]").onclick = () => card.classList.remove("on");
+}
+
+$("btnQuest").onclick = () => {
+  questOn = !questOn;
+  document.body.classList.toggle("quest-on", questOn);
+  $("quest").classList.toggle("on", questOn);
+  $("btnQuest").textContent = questOn ? "🗺️ Map view" : "✨ Journey view";
+  if (questOn) renderQuest();
+  else { $("questCard").classList.remove("on"); map.invalidateSize(); }
+};
+
+/* ---------- follow (clone a shared trip into your own planner) ---------- */
+$("btnFollow").onclick = () => {
+  const copy = JSON.parse(JSON.stringify(trip));
+  delete copy.id;
+  localStorage.setItem(STORE_KEY, JSON.stringify(copy));
+  toast("⭐ Trip copied to your planner — open the page without ?trip= and it's yours to remix");
+};
+
+/* ---------- edit dialog ---------- */
+let editing = null;
+
+function openEdit(day, stop) {
+  editing = { day, stop };
+  $("editName").value = stop.name;
+  $("editNotes").value = stop.notes || "";
+  const sel = $("editDaySel");
+  sel.innerHTML = trip.days.map(d =>
+    `<option value="${d.id}" ${d.id === day.id ? "selected" : ""}>${esc(d.title)}</option>`).join("");
+  const linksBox = $("editLinks");
+  linksBox.innerHTML = "";
+  strLinks(stop).forEach(u => addLinkRow(u));
+  if (!strLinks(stop).length) addLinkRow("");
+  const res = getReservation(stop);
+  $("resKind").value = res ? res.kind : "";
+  $("resStatus").value = res ? res.status : "booked";
+  $("resNote").value = res ? (res.note || "") : "";
+  $("editDialog").showModal();
+}
+
+function addLinkRow(value) {
+  const row = document.createElement("div");
+  row.className = "link-row";
+  row.innerHTML = `<input placeholder="https://instagram.com/p/… or a Google Maps link">
+    <button type="button" title="remove">✕</button>`;
+  row.querySelector("input").value = value || "";
+  row.querySelector("button").onclick = () => row.remove();
+  $("editLinks").appendChild(row);
+}
+
+$("btnAddLink").onclick = () => addLinkRow("");
+$("btnCancelEdit").onclick = () => $("editDialog").close();
+$("btnDeleteStop").onclick = () => {
+  if (!editing) return;
+  if (!confirm(`Delete "${editing.stop.name}"?`)) return;
+  deleteStopM(editing.day, editing.stop);
+  $("editDialog").close();
+};
+$("editForm").onsubmit = () => {
+  if (!editing) return;
+  const { day, stop } = editing;
+  const links = [...document.querySelectorAll("#editLinks input")].map(i => i.value.trim()).filter(Boolean);
+  const kind = $("resKind").value;
+  if (kind) links.push({ type: "reservation", kind, status: $("resStatus").value, note: $("resNote").value.trim() });
+  updateStopM(day, stop, {
+    name: $("editName").value.trim() || stop.name,
+    notes: $("editNotes").value,
+    links,
+  }, $("editDaySel").value);
+};
+
+/* ---------- share / import / export ---------- */
+$("btnShare").onclick = () => {
+  let url;
+  if (LIVE) {
+    url = location.href;
+  } else {
+    const payload = btoa(unescape(encodeURIComponent(JSON.stringify(trip))));
+    url = location.origin + location.pathname + "#trip=" + encodeURIComponent(payload);
+  }
+  navigator.clipboard.writeText(url).then(
+    () => toast(LIVE ? "Live link copied — everyone on it edits the same trip ⚡" : "Snapshot link copied — or hit ⚡ Go live for real-time sharing"),
+    () => prompt("Copy this link:", url));
+};
+$("btnExport").onclick = () => {
+  const blob = new Blob([JSON.stringify(trip, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = trip.title.replace(/\s+/g, "-").toLowerCase() + ".json";
+  a.click();
+};
+$("btnImport").onclick = () => $("fileImport").click();
+$("fileImport").onchange = (e) => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (f) handleImportFile(f);
+};
+
+/* ---------- import: trip JSON, or Google Takeout Saved Places ---------- */
+async function handleImportFile(f) {
+  const text = await f.text();
+  if (/\.csv$/i.test(f.name)) return importTakeout(parseTakeoutCsv(text), f.name);
+  try {
+    const j = JSON.parse(text);
+    if (j && j.type === "FeatureCollection") return importTakeout(parseTakeoutGeoJson(j), f.name);
+    if (j && j.days) {
+      if (LIVE) { toast("Full-trip JSON import works in local mode — open the page without ?trip= first"); return; }
+      trip = j; persistLocal(); toast("Trip imported"); return;
+    }
+  } catch (err) {}
+  toast("Unrecognized file — expected trip JSON or Google Takeout Saved Places (.json/.csv)");
+}
+
+function parseTakeoutGeoJson(j) {
+  return (j.features || []).map(ft => {
+    const p = ft.properties || {};
+    const name = (p.location && p.location.name) || p.Title || p.title || p.name || "Saved place";
+    const url = p.google_maps_url || p.Google_Maps_URL || "";
+    let lat = null, lng = null;
+    if (ft.geometry && Array.isArray(ft.geometry.coordinates)) {
+      [lng, lat] = ft.geometry.coordinates;
+    }
+    if ((lat == null || lng == null) && url) {
+      const c = parseGoogleMapsUrl(url);
+      if (c) { lat = c.lat; lng = c.lng; }
+    }
+    return { name, lat, lng, links: url ? [url] : [], notes: p.Comment || (p.location && p.location.address) || "" };
+  });
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [], cell = "", inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') inQ = false;
+      else cell += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ",") { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += ch;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function parseTakeoutCsv(text) {
+  const rows = parseCsvRows(text);
+  const head = rows.shift() || [];
+  const iT = head.indexOf("Title"), iN = head.indexOf("Note"), iU = head.indexOf("URL");
+  return rows.filter(r => r.some(c => c && c.trim())).map(r => {
+    const url = iU >= 0 ? (r[iU] || "") : "";
+    const c = url ? parseGoogleMapsUrl(url) : null;
+    return {
+      name: (iT >= 0 && r[iT]) || "Saved place",
+      lat: c ? c.lat : null, lng: c ? c.lng : null,
+      links: url ? [url] : [], notes: (iN >= 0 && r[iN]) || "",
+    };
+  });
+}
+
+async function importTakeout(items, filename) {
+  if (!items.length) { toast("No places found in " + filename); return; }
+  const missing = items.filter(i => i.lat == null || i.lng == null);
+  if (missing.length) toast(`Looking up ${missing.length} place(s) without coordinates — this takes ~1s each…`);
+  for (const it of missing) {
+    try {
+      const res = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(it.name));
+      const r = (await res.json())[0];
+      if (r) { it.lat = +r.lat; it.lng = +r.lon; }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 1100));
+  }
+  const ok = items.filter(i => i.lat != null && i.lng != null);
+  const skipped = items.length - ok.length;
+  if (!ok.length) { toast("Couldn't place any of those — no coordinates found"); return; }
+  let day = trip.days.find(d => /imported/i.test(d.title));
+  if (LIVE) {
+    if (!day) {
+      const d = await sb.from("trip_days").insert({ trip_id: LIVE_TRIP_ID, title: "📥 Imported ideas", position: trip.days.length }).select().single();
+      if (d.error) { toast("Import failed: " + d.error.message); return; }
+      day = { id: d.data.id, title: d.data.title, stops: [] };
+      trip.days.push(day);
+    }
+    const rows = ok.map((i, n) => ({
+      trip_id: LIVE_TRIP_ID, day_id: day.id, name: i.name, lat: i.lat, lng: i.lng,
+      links: i.links, notes: i.notes, added_by: userName, position: day.stops.length + n,
+    }));
+    const r = await sb.from("trip_stops").insert(rows);
+    if (r.error) { toast("Import failed: " + r.error.message); return; }
+    scheduleRefresh();
+  } else {
+    if (!day) { day = { id: uid(), title: "📥 Imported ideas", stops: [] }; trip.days.push(day); }
+    ok.forEach(i => day.stops.push({ id: uid(), name: i.name, lat: i.lat, lng: i.lng, links: i.links, notes: i.notes, addedBy: userName }));
+    persistLocal();
+  }
+  toast(`Imported ${ok.length} place(s) into "${day.title}"` + (skipped ? ` · ${skipped} skipped (no location found)` : ""));
+}
+$("btnPrint").onclick = () => window.print();
+$("btnGoLive").onclick = goLive;
+
+/* ---------- misc wiring ---------- */
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500);
+}
+
+$("tripTitle").onchange = (e) => setTripTitle(e.target.value);
+$("btnAdd").onclick = handleAdd;
+$("addInput").onkeydown = (e) => { if (e.key === "Enter") handleAdd(); };
+$("btnAddDay").onclick = addDayM;
+$("whoName").onclick = () => {
+  const n = prompt("Your name (shows on pins you add):", userName || "");
+  if (n !== null) { userName = n.trim(); localStorage.setItem(NAME_KEY, userName); render(); }
+};
+
+/* ---------- boot ---------- */
+async function boot() {
+  if (!userName) {
+    const n = prompt("Welcome! What's your name? (shows on pins you add)", "");
+    userName = (n || "").trim();
+    if (userName) localStorage.setItem(NAME_KEY, userName);
+  }
+  map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
+  map.on("dragstart zoomstart", () => { map._userMoved = true; });
+  setBasemap(basemap);
+  const styleCtl = L.control({ position: "topright" });
+  styleCtl.onAdd = () => {
+    const b = L.DomUtil.create("button", "map-style-btn");
+    b.textContent = basemap === "night" ? "☀️" : "🌙";
+    b.title = "Toggle night / day map";
+    b.onclick = (e) => { e.stopPropagation(); setBasemap(basemap === "night" ? "day" : "night"); };
+    return b;
+  };
+  styleCtl.addTo(map);
+  layerGroup = L.layerGroup().addTo(map);
+
+  if (LIVE) {
+    $("liveBadge").classList.add("on");
+    $("btnFollow").hidden = false;
+    // paint the cached copy instantly, then reconcile with the network
+    const cached = localStorage.getItem(cacheKey());
+    if (cached) {
+      try { trip = JSON.parse(cached); render(); setSync("syncing…"); } catch (e) {}
+    }
+    try {
+      trip = await fetchLiveTrip();
+    } catch (e) {
+      console.warn(e);
+      if (trip) {
+        setSync("offline — showing last synced copy");
+        toast("No connection — showing the last synced copy; edits will sync when you're back online");
+      } else {
+        toast("Couldn't load live trip (" + (e.message || "network error") + ") — showing local copy");
+        trip = loadLocalTrip();
+      }
+    }
+    subscribeLive();
+  } else {
+    $("btnGoLive").hidden = false;
+    trip = loadLocalTrip();
+    localStorage.setItem(STORE_KEY, JSON.stringify(trip));
+  }
+  render();
+}
+boot();
+</script>
+</body>
+</html>
