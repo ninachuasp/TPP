@@ -29,21 +29,11 @@
     --hand: "Bradley Hand", "Bradley Hand ITC", "Marker Felt", "Chalkboard SE", "Comic Sans MS", "Ink Free", "Segoe Print", cursive;
     font-size: 15px;
   }
-  /* ---- UI skins: token overrides picked with the 🎨 button ---- */
-  :root[data-skin="midnight"] {
-    --bg: #14171f; --panel: #1d222e; --ink: #e8e8ef; --muted: #98a0b4;
-    --line: #313a4e; --accent: #a294e0; --accent-soft: #2b2a45;
-    --nav-bg: #232842; --nav-bg2: #33395e; --nav-ink: #eceaf8;
-  }
-  :root[data-skin="matcha"] {
-    --bg: #f1f5ee; --panel: #fbfdf8; --ink: #26302a; --muted: #7d8a80;
-    --line: #dbe5d6; --accent: #3d7a55; --accent-soft: #e5f2e9;
-    --nav-bg: #2f6845; --nav-bg2: #3d7a55; --nav-ink: #f1fbf3;
-  }
-  :root[data-skin="sakura"] {
-    --bg: #faf4f5; --panel: #fffcfc; --ink: #3a2e33; --muted: #97848b;
-    --line: #eddfe3; --accent: #c2497a; --accent-soft: #fbe9f1;
-    --nav-bg: #b23f6e; --nav-bg2: #cc5488; --nav-ink: #fff2f8;
+  /* ---- Dark mode: same terracotta brand, dark warm ground ---- */
+  :root[data-theme="dark"] {
+    --bg: #16130e; --panel: #211d16; --ink: #f0ebe1; --muted: #a99f8d;
+    --line: #362f25; --accent: #e2571f; --accent-soft: #34210f; --live: #4ade80;
+    --nav-bg: #6f280a; --nav-bg2: #9a380e; --nav-ink: #fff3ea;
   }
   * { box-sizing: border-box; margin: 0; }
   body {
@@ -224,6 +214,20 @@
     pointer-events: none; overflow: visible;
   }
   .doodle-frame rect { fill: none; stroke: var(--accent); stroke-width: 1.4px; }
+  .doodle-mark { width: 1em; height: 1em; color: var(--accent); vertical-align: -0.1em; opacity: .8; }
+  .day-divider { display: block; width: 84%; height: 9px; margin: 2px auto 13px; }
+  #syncLoader {
+    position: fixed; inset: 0; z-index: 4000; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(3px);
+  }
+  #syncLoader.on { display: flex; }
+  #syncLoader .load-pin { width: 46px; animation: plonkbounce 0.75s cubic-bezier(.5,.05,.5,.95) infinite; transform-origin: center bottom; }
+  #syncLoader .load-shadow { width: 22px; height: 5px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 22%, transparent); animation: plonkshadow 0.75s ease-in-out infinite; }
+  #syncLoader .load-text { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; font-weight: 700; color: var(--ink); }
+  @keyframes plonkbounce { 0%,100% { transform: translateY(-16px) scale(1,1); } 45% { transform: translateY(-16px) scale(1,1);} 60% { transform: translateY(0) scale(1.08,.9);} 75% { transform: translateY(-16px) scale(1,1);} }
+  @keyframes plonkshadow { 0%,100%,45%,75% { transform: scale(.7); opacity:.4;} 60% { transform: scale(1.15); opacity:.8;} }
+  @media (prefers-reduced-motion: reduce) { #syncLoader .load-pin, #syncLoader .load-shadow { animation: none; } }
   .catgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
   .cat-choice {
     display: flex; flex-direction: column; align-items: center; gap: 1px;
@@ -541,9 +545,6 @@
 <header>
   <span class="nav-deco" aria-hidden="true" style="z-index:0">
     <svg class="nav-pin" viewBox="0 0 40 64"><g transform="rotate(14 20 24)"><path d="M20 2C11 2 4 9 4 17c0 10 16 24 16 24s16-14 16-24C36 9 29 2 20 2Z"/><circle cx="14.5" cy="15.5" r="4"/><circle cx="25.5" cy="15.5" r="4"/></g><circle cx="23" cy="57" r="5"/></svg>
-    <span class="nav-spark" style="top:9px;left:31%">✦</span>
-    <span class="nav-spark" style="bottom:10px;left:39%;font-size:.7rem">✧</span>
-    <span class="nav-spark" style="top:13px;left:58%;font-size:.8rem">✦</span>
   </span>
   <div class="brand">
     <svg class="logo" viewBox="0 0 244 84" role="img" aria-label="Plonk!">
@@ -570,7 +571,7 @@
   <span class="who">planning as <b id="whoName" title="click to change your name">…</b></span>
   <span class="spacer"></span>
   <button id="btnSkin" title="Change the look">🎨</button>
-  <button id="btnQuest">✨ Journey view</button>
+  <button id="btnQuest">🧭 Journey view</button>
   <button id="btnFollow" hidden title="Copy this trip into your own planner">⭐ Follow trip</button>
   <button id="btnGoLive" class="primary" hidden>⚡ Go live</button>
   <button id="btnShare" class="primary">🔗 Share trip link</button>
@@ -608,9 +609,6 @@
     <button id="btnAddDay" style="width:100%">＋ Add a day</button>
     <div class="brand-footer">
       <svg class="doodle-frame" preserveAspectRatio="none" viewBox="0 0 300 120" filter="url(#rough2)"><rect x="3" y="3" width="294" height="114" rx="16" vector-effect="non-scaling-stroke"/></svg>
-      <span class="bf-spark" style="top:16px;left:30%">✦</span>
-      <span class="bf-spark" style="top:40px;right:28%;font-size:.8rem">✧</span>
-      <span class="bf-spark" style="bottom:18px;left:34%;font-size:.75rem">✦</span>
       <span id="footerMark"></span>
       <div class="bf-name">Plonk!</div>
       <div class="bf-tag">friends plonk, we plan</div>
@@ -628,7 +626,7 @@
 <nav id="mobileNav">
   <button data-tab="plan">📋 Plan</button>
   <button data-tab="map">🗺️ Map</button>
-  <button data-tab="journey">✨ Journey</button>
+  <button data-tab="journey">🧭 Journey</button>
 </nav>
 
 <dialog id="editDialog">
@@ -704,6 +702,12 @@
   <div id="backupList"></div>
   <div class="actions"><button type="button" id="btnBackupClose">Close</button></div>
 </dialog>
+
+<div id="syncLoader">
+  <svg class="load-pin" viewBox="0 0 40 64" aria-hidden="true"><g transform="rotate(6 20 24)"><path fill="var(--accent)" d="M20 2C11 2 4 9 4 17c0 10 16 24 16 24s16-14 16-24C36 9 29 2 20 2Z"/><circle cx="14.5" cy="15.5" r="4" fill="var(--panel)"/><circle cx="25.5" cy="15.5" r="4" fill="var(--panel)"/><circle cx="15.6" cy="16" r="1.8" fill="var(--ink)"/><circle cx="26.6" cy="16" r="1.8" fill="var(--ink)"/></g><circle cx="23" cy="57" r="5" fill="var(--accent)"/></svg>
+  <div class="load-shadow"></div>
+  <div class="load-text">plonking your trip together…</div>
+</div>
 
 <div id="toast"></div>
 
@@ -1766,6 +1770,20 @@ const CHECK_SVG = `<svg class="picon" viewBox="0 0 24 24" fill="none" stroke="cu
 function underline() {
   return `<svg class="doodle-underline" viewBox="0 0 120 7" preserveAspectRatio="none" filter="url(#rough)"><path d="M2 4.5 Q 30 1.5 60 4 T 118 3.5" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/></svg>`;
 }
+/* little hand-drawn accent marks for section headings */
+const DOODLE = {
+  star:  '<path d="M12 3 14 9.5 20.5 10 15 14 17 20.5 12 16.5 7 20.5 9 14 3.5 10 10 9.5Z"/>',
+  spark: '<path d="M12 3v18M3 12h18M6 6l12 12M18 6 6 18"/>',
+  bang:  '<path d="M8 4v9M8 17v.5M16 4v9M16 17v.5"/>',
+  arrow: '<path d="M3 14c5-6 10-8 18-8M15 3l6 3-3 6"/>',
+};
+function doodle(name, cls) {
+  return `<svg class="doodle-mark ${cls || ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)">${DOODLE[name] || DOODLE.star}</svg>`;
+}
+/* hand-drawn wavy divider between days */
+function daySquiggle() {
+  return `<svg class="day-divider" viewBox="0 0 320 10" preserveAspectRatio="none" filter="url(#rough)"><path d="M4 5 Q 24 1 44 5 T 84 5 T 124 5 T 164 5 T 204 5 T 244 5 T 284 5 T 316 5" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" opacity=".5"/></svg>`;
+}
 
 function guessCategory(stop) {
   const t = (stop.name + " " + (stop.notes || "")).toLowerCase();
@@ -1794,18 +1812,15 @@ const BASEMAPS = {
   night: { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" },
   day: { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" },
 };
-let basemap = localStorage.getItem("tpp.basemap") || "night";
+let basemap = "day";
 function setBasemap(mode) {
   basemap = mode;
-  localStorage.setItem("tpp.basemap", mode);
   if (tileLayer) map.removeLayer(tileLayer);
   tileLayer = L.tileLayer(BASEMAPS[mode].url, {
     maxZoom: 19, subdomains: "abcd",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
   }).addTo(map);
   document.body.classList.toggle("night", mode === "night");
-  const b = document.querySelector(".map-style-btn");
-  if (b) b.textContent = mode === "night" ? "☀️" : "🌙";
 }
 
 function dayColor(i) { return DAY_COLORS[i % DAY_COLORS.length]; }
@@ -1823,6 +1838,7 @@ function render() {
   container.innerHTML = "";
   let dayNum = 0;
   trip.days.forEach((day, di) => {
+    if (di > 0) container.insertAdjacentHTML("beforeend", daySquiggle());
     const color = dayColor(di);
     const today = isToday(day);
     if (!excludedDay(day)) dayNum++;
@@ -2184,7 +2200,7 @@ $("btnQuest").onclick = () => {
   questOn = !questOn;
   document.body.classList.toggle("quest-on", questOn);
   $("quest").classList.toggle("on", questOn);
-  $("btnQuest").textContent = questOn ? "🗺️ Map view" : "✨ Journey view";
+  $("btnQuest").textContent = questOn ? "🗺️ Map view" : "🧭 Journey view";
   if (questOn) renderQuest();
   else { $("questCard").classList.remove("on"); map.invalidateSize(); }
 };
@@ -2423,28 +2439,22 @@ function toast(msg, action) {
 }
 
 /* ---------- UI skins ---------- */
-const SKINS = [
-  { id: "", name: "Washi 🏮" },
-  { id: "midnight", name: "Midnight 🌌" },
-  { id: "matcha", name: "Matcha 🍵" },
-  { id: "sakura", name: "Sakura 🌸" },
-];
-let skin = localStorage.getItem("tpp.skin") || "";
-function applySkin(id) {
-  skin = id;
-  localStorage.setItem("tpp.skin", id);
-  if (id) document.documentElement.dataset.skin = id;
-  else delete document.documentElement.dataset.skin;
+/* ---------- light / dark mode ---------- */
+let theme = localStorage.getItem("tpp.theme")
+  || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+function applyTheme(mode) {
+  theme = mode;
+  localStorage.setItem("tpp.theme", mode);
+  if (mode === "dark") document.documentElement.dataset.theme = "dark";
+  else delete document.documentElement.dataset.theme;
+  $("btnSkin").textContent = mode === "dark" ? "☀️" : "🌙";
+  $("btnSkin").title = mode === "dark" ? "Switch to light mode" : "Switch to dark mode";
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#c2410c";
+  if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue("--nav-bg").trim();
+  if (typeof map !== "undefined" && map) setBasemap(mode === "dark" ? "night" : "day");
 }
-applySkin(skin);
-$("btnSkin").onclick = () => {
-  const i = SKINS.findIndex(s => s.id === skin);
-  const next = SKINS[(i + 1) % SKINS.length];
-  applySkin(next.id);
-  toast("Skin: " + next.name);
-};
+applyTheme(theme);
+$("btnSkin").onclick = () => applyTheme(theme === "dark" ? "light" : "dark");
 
 /* ---------- PWA ---------- */
 if ("serviceWorker" in navigator && location.protocol === "https:") {
@@ -2514,22 +2524,13 @@ async function boot() {
     userName = (n || "").trim();
     if (userName) localStorage.setItem(NAME_KEY, userName);
   }
-  $("addHeading").innerHTML = pinMark() + " Plonk a pin";
+  $("addHeading").innerHTML = pinMark() + " Plonk a pin " + doodle("bang");
   $("addHeading").insertAdjacentHTML("afterend", underline());
   $("footerMark").innerHTML = pinMark();
   $("mapMark").innerHTML = pinMark();
   map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
   map.on("dragstart zoomstart", () => { map._userMoved = true; });
-  setBasemap(basemap);
-  const styleCtl = L.control({ position: "topright" });
-  styleCtl.onAdd = () => {
-    const b = L.DomUtil.create("button", "map-style-btn");
-    b.textContent = basemap === "night" ? "☀️" : "🌙";
-    b.title = "Toggle night / day map";
-    b.onclick = (e) => { e.stopPropagation(); setBasemap(basemap === "night" ? "day" : "night"); };
-    return b;
-  };
-  styleCtl.addTo(map);
+  setBasemap(theme === "dark" ? "night" : "day");
   layerGroup = L.layerGroup().addTo(map);
   if (mobileMq.matches) setMtab("plan");
 
@@ -2541,6 +2542,7 @@ async function boot() {
     if (cached) {
       try { trip = JSON.parse(cached); render(); setSync("syncing…"); } catch (e) {}
     }
+    if (!cached) $("syncLoader").classList.add("on");  // bouncing pin only on a cold load
     try {
       trip = await fetchLiveTrip();
     } catch (e) {
@@ -2553,6 +2555,7 @@ async function boot() {
         trip = loadLocalTrip();
       }
     }
+    $("syncLoader").classList.remove("on");
     subscribeLive();
   } else {
     $("btnGoLive").hidden = false;
