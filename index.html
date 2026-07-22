@@ -118,19 +118,37 @@
     box-shadow: 0 1px 2px rgba(60,45,20,.04), 0 12px 32px -22px rgba(60,45,20,.35);
   }
   .day-head {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 12px; border-bottom: 1px dashed var(--line);
+    display: flex; flex-direction: column; align-items: stretch; gap: 3px;
+    padding: 9px 12px 10px; border-bottom: 1px dashed var(--line);
   }
+  .day-toprow { display: flex; align-items: center; gap: 7px; }
+  .day-botrow { display: flex; align-items: center; gap: 7px; padding-left: 20px; }
+  .day-spacer { flex: 1; }
   .day-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
-  .day-head input {
+  .day-hero { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .day-date {
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-    font-weight: 700; font-size: .98rem; color: var(--ink);
+    font-weight: 700; font-size: 1.08rem; color: var(--ink); white-space: nowrap; flex-shrink: 0;
+  }
+  .day-botrow .crew-ava { margin-left: auto; }
+  .day-index {
+    font-size: .58rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: #fff; border-radius: 20px; padding: 2px 8px; flex-shrink: 0;
+  }
+  .day-title-main {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-weight: 700; font-size: 1rem; color: var(--ink);
     border: none; background: transparent; flex: 1; min-width: 0;
   }
-  .day-head input:focus { outline: none; }
+  .day-botrow input {
+    font-size: .8rem; font-weight: 600; color: var(--muted);
+    border: none; background: transparent; flex: 1; min-width: 0;
+  }
+  .day-botrow input::placeholder { color: var(--line); }
+  .day-hero input:focus, .day-botrow input:focus { outline: none; color: var(--accent); }
   .day-head .mini {
     font-size: .72rem; padding: 2px 4px;
-    border: none; background: none; color: var(--muted); opacity: .75;
+    border: none; background: none; color: var(--muted); opacity: .72;
   }
   .day-head .mini:hover { opacity: 1; color: var(--accent); }
   .stop {
@@ -164,8 +182,35 @@
   .stop .ops button:hover { color: var(--accent); }
   .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
 
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand .logo { height: 28px; width: auto; display: block; }
+  /* branded pin-mascot glyph, reusable */
+  .pinmark { display: inline-block; vertical-align: middle; }
+  .brand-footer {
+    text-align: center; padding: 18px 12px 6px; color: var(--muted);
+  }
+  .brand-footer .pinmark { height: 34px; opacity: .9; }
+  .brand-footer .bf-name {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-weight: 700; font-size: 1rem; color: var(--ink); margin-top: 4px;
+  }
+  .brand-footer .bf-tag { font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; margin-top: 1px; }
+  .add-box h2 .pinmark { height: 17px; margin-right: 1px; }
+  .map-brand {
+    position: absolute; bottom: 20px; left: 10px; z-index: 500;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 20px; padding: 4px 11px 4px 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.16); pointer-events: none;
+  }
+  .map-brand .pinmark { height: 18px; }
+  .map-brand b {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: .9rem; color: var(--ink);
+  }
+  body.night .map-brand { background: #1c2130; border-color: #313a4e; }
+  body.night .map-brand b { color: #e8e8ef; }
+
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .brand .logo { height: 33px; width: auto; display: block; }
   @keyframes wiggle {
     0%, 100% { transform: rotate(9deg); }
     30% { transform: rotate(-4deg); }
@@ -422,7 +467,7 @@
 <main>
   <div id="sidebar">
     <div class="add-box">
-      <h2>📍 Plonk a pin</h2>
+      <h2 id="addHeading">Plonk a pin</h2>
       <div class="row">
         <input id="addInput" placeholder="Paste a Google Maps link, coordinates, or type a place name…">
         <button id="btnAdd" class="primary">Plonk!</button>
@@ -440,8 +485,15 @@
     </div>
     <div id="days"></div>
     <button id="btnAddDay" style="width:100%">＋ Add a day</button>
+    <div class="brand-footer">
+      <span id="footerMark"></span>
+      <div class="bf-name">Plonk</div>
+      <div class="bf-tag">friends plonk, we plan</div>
+    </div>
   </div>
-  <div id="map"></div>
+  <div id="map">
+    <div class="map-brand"><span id="mapMark"></span><b>Plonk</b></div>
+  </div>
   <div id="quest">
     <div id="questSvgHost"></div>
     <div id="questCard"></div>
@@ -531,7 +583,7 @@ const SB_URL = "https://wcncgckvrvlvbmqergvd.supabase.co";
 const SB_KEY = "sb_publishable_1grF-44ak6XLoHYzuNOTaQ_5zQxlXK7";
 
 const DAY_COLORS = ["#c2410c","#0e7490","#7c3aed","#15803d","#b45309","#be185d","#1d4ed8","#4d7c0f","#9f1239","#374151"];
-const STORE_KEY = "tpp.trip.v2";
+const STORE_KEY = "tpp.trip.v3";
 const NAME_KEY = "tpp.username";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -548,49 +600,49 @@ function seedTrip() {
   return {
     title: "Sapporo Road Trip · 12–24 Oct",
     days: [
-      { id: uid(), title: "Sun 12 Oct — Sapporo · Derek & Sean", stops: [
+      { id: uid(), date: "2026-10-12", title: "Sapporo · Derek & Sean", stops: [
         mk("Nijo Market", 43.0570, 141.3612, [], "Land + morning kaisendon run"),
         mk("Odori Park & TV Tower", 43.0606, 141.3472, [], "Walk it off downtown"),
         mk("Sapporo Beer Garden", 43.0713, 141.3697, [{ type: "reservation", kind: "dinner", status: "pending", note: "18:30 — book ahead" }], "Genghis Khan BBQ dinner"),
         mk("Susukino", 43.0553, 141.3536, [], "Nightcap / ramen alley"),
       ]},
-      { id: uid(), title: "Mon 13 Oct — Sapporo & Jozankei · Derek & Sean", stops: [
+      { id: uid(), date: "2026-10-13", title: "Sapporo & Jozankei · Derek & Sean", stops: [
         mk("Hokkaido Shrine", 43.0545, 141.3079, [], "Maruyama Park autumn stroll"),
         mk("Shiroi Koibito Park", 43.0879, 141.2717),
         mk("Jozankei Onsen", 42.9679, 141.1678, [], "Peak koyo season — day-use onsen, ~50 min drive"),
         mk("Mt. Moiwa Ropeway", 43.0333, 141.3222, [], "Night view on the way back"),
       ]},
-      { id: uid(), title: "Tue 14 Oct — Pickup → Noboribetsu · all 4", stops: [
+      { id: uid(), date: "2026-10-14", title: "Pickup → Noboribetsu · all 4", stops: [
         mk("New Chitose Airport", 42.7752, 141.6923, [], "Collect Nina & Seth + rental car"),
         mk("Lake Shikotsu", 42.7600, 141.3400, [], "Lakeside foliage stop, 30 min from airport"),
         mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [{ type: "reservation", kind: "hotel", status: "pending", note: "onsen ryokan TBD" }], "Check into onsen ryokan, evening Hell Valley walk"),
       ]},
-      { id: uid(), title: "Wed 15 Oct — Noboribetsu → Lake Toya · all 4", stops: [
+      { id: uid(), date: "2026-10-15", title: "Noboribetsu → Lake Toya · all 4", stops: [
         mk("Usuzan Ropeway", 42.5430, 140.8280, [], "Volcano + caldera views"),
         mk("Lake Toya", 42.6048, 140.8464, [], "Lakefront onsen stay — nightly fireworks run to end of Oct"),
       ]},
-      { id: uid(), title: "Thu 16 Oct — Toya → Shakotan → Otaru · all 4", stops: [
+      { id: uid(), date: "2026-10-16", title: "Toya → Shakotan → Otaru · all 4", stops: [
         mk("Niseko", 42.8048, 140.6874, [], "Coffee stop, Mt Yotei viewpoints"),
         mk("Cape Kamui", 43.3360, 140.3430, [], "Shakotan-blue cliff walk + uni-don lunch nearby"),
         mk("Otaru Canal", 43.1985, 140.9959, [], "Evening gaslight stroll — stay Otaru"),
       ]},
-      { id: uid(), title: "Fri 17 Oct — Otaru → Yoichi → Furano · all 4", stops: [
+      { id: uid(), date: "2026-10-17", title: "Otaru → Yoichi → Furano · all 4", stops: [
         mk("Sankaku Market", 43.1990, 140.9917, [], "Seafood breakfast"),
         mk("Nikka Whisky Yoichi Distillery", 43.1912, 140.7852, [], "Book tasting ahead"),
         mk("Ningle Terrace", 43.3187, 142.3819, [], "~3h drive; twilight craft huts — stay Furano"),
       ]},
-      { id: uid(), title: "Sat 18 Oct — Biei loop → Asahikawa · all 4", stops: [
+      { id: uid(), date: "2026-10-18", title: "Biei loop → Asahikawa · all 4", stops: [
         mk("Blue Pond (Aoiike)", 43.4839, 142.6270, [], "Go early to beat tour buses"),
         mk("Shirahige Falls", 43.4740, 142.6360),
         mk("Patchwork Road, Biei", 43.6000, 142.4300, [], "Rolling farm hills drive"),
         mk("Shikisai-no-oka", 43.5387, 142.4785, [], "Autumn flower fields"),
         mk("Asahikawa Ramen Village", 43.7910, 142.4086, [], "Shoyu ramen dinner — stay Asahikawa"),
       ]},
-      { id: uid(), title: "Sun 19 Oct — Sounkyo → Sapporo · all 4", stops: [
+      { id: uid(), date: "2026-10-19", title: "Sounkyo → Sapporo · all 4", stops: [
         mk("Sounkyo Gorge", 43.7280, 142.9480, [], "Ginga & Ryusei falls, ropeway koyo — or swap for Asahiyama Zoo"),
         mk("Asahiyama Zoo", 43.7679, 142.4808, [], "Alternative to Sounkyo; then ~2h drive to Sapporo, farewell jingisukan dinner"),
       ]},
-      { id: uid(), title: "Mon 20 Oct — Farewell · all 4, Derek & Sean fly out", stops: [
+      { id: uid(), date: "2026-10-20", title: "Farewell · all 4, Derek & Sean fly out", stops: [
         mk("Tanukikoji Shopping Street", 43.0574, 141.3517, [], "Souvenir run"),
         mk("New Chitose Airport", 42.7752, 141.6923, [], "Drop car + Derek & Sean fly out"),
       ]},
@@ -668,6 +720,20 @@ const todayISO = () => {
   const n = new Date();
   return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0");
 };
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtDate(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return WEEKDAYS[d.getDay()] + " " + d.getDate() + " " + MONTH_ABBR[d.getMonth()];
+}
+/* Remove a leading date token ("Tue 14 Oct — ") from a title, since the
+ * date is now shown as the day's headline. Display-only unless the user edits. */
+function stripLeadingDate(title) {
+  return title
+    .replace(/^\s*(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s+/i, "")
+    .replace(/^\s*\d{1,2}\s*(?:[–-]\s*\d{1,2})?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*(?:[—–\-·:]\s*)?/i, "")
+    .trim();
+}
 const isToday = day => dayDateISO(day) === todayISO();
 function setDayDate(day, iso) {
   if (LIVE && DATE_SYNC) {
@@ -1496,59 +1562,90 @@ function render() {
 
   const container = $("days");
   container.innerHTML = "";
+  let dayNum = 0;
   trip.days.forEach((day, di) => {
     const color = dayColor(di);
     const today = isToday(day);
+    if (!excludedDay(day)) dayNum++;
     const isCollapsed = collapsed.has(day.id) && !today;
     const el = document.createElement("div");
     el.className = "day" + (today ? " today" : "");
     el.dataset.dayId = day.id;
     el.style.borderLeft = "4px solid " + color;
+    const iso = dayDateISO(day);
+    const dated = iso && !excludedDay(day);
     const head = document.createElement("div");
     head.className = "day-head";
+
+    // ---- top row: the day & date as the headline ----
+    const top = document.createElement("div"); top.className = "day-toprow";
     const chev = document.createElement("button");
     chev.className = "chev"; chev.textContent = isCollapsed ? "▸" : "▾";
     chev.title = isCollapsed ? "Expand day" : "Collapse day";
     chev.onclick = () => toggleCollapse(day.id);
-    head.appendChild(chev);
-    head.insertAdjacentHTML("beforeend", `<span class="day-dot" style="background:${color}"></span>`);
-    const titleInput = document.createElement("input");
-    titleInput.value = day.title;
-    titleInput.onchange = () => renameDay(day, titleInput.value);
-    head.appendChild(titleInput);
-    if (today) head.insertAdjacentHTML("beforeend", `<span class="today-chip">TODAY</span>`);
+    top.appendChild(chev);
+    top.insertAdjacentHTML("beforeend", `<span class="day-dot" style="background:${color}"></span>`);
+
+    const hero = document.createElement("div"); hero.className = "day-hero";
+    if (dated) {
+      hero.innerHTML =
+        `<span class="day-index" style="background:${color}">Day ${dayNum}</span>` +
+        `<span class="day-date">${esc(fmtDate(iso))}</span>`;
+    } else {
+      const ti = document.createElement("input"); ti.className = "day-title-main";
+      ti.value = day.title;
+      ti.onchange = () => renameDay(day, ti.value);
+      hero.appendChild(ti);
+    }
+    top.appendChild(hero);
+    if (today) top.insertAdjacentHTML("beforeend", `<span class="today-chip">TODAY</span>`);
     const dots = crewDots(day.title);
-    if (dots) head.appendChild(dots);
-    const drive = driveBadge(day, di);
-    if (drive) head.appendChild(drive);
-    const wx = weatherChip(day);
-    if (wx) head.appendChild(wx);
+    if (dots && !dated) top.appendChild(dots);  // dated days show crew on the subtitle row
+    top.insertAdjacentHTML("beforeend", `<span class="day-spacer"></span>`);
+
     if (day.stops.length >= 2) {
       const spin = document.createElement("button");
       spin.className = "mini"; spin.textContent = "🎲"; spin.title = "Can't decide? Spin!";
       spin.onclick = () => spinDay(day);
-      head.appendChild(spin);
+      top.appendChild(spin);
     }
     const dateBtn = document.createElement("button");
     dateBtn.className = "mini"; dateBtn.textContent = "📅";
-    dateBtn.title = dayDateISO(day) ? "Date: " + dayDateISO(day) : "Set this day's date";
+    dateBtn.title = iso ? "Date: " + iso : "Set this day's date";
     dateBtn.onclick = () => promptDayDate(day);
-    head.appendChild(dateBtn);
+    top.appendChild(dateBtn);
     const upBtn = document.createElement("button");
     upBtn.className = "mini"; upBtn.textContent = "↑"; upBtn.title = "Move day up";
     upBtn.onclick = () => moveDay(di, -1);
-    head.appendChild(upBtn);
+    top.appendChild(upBtn);
     const dnBtn = document.createElement("button");
     dnBtn.className = "mini"; dnBtn.textContent = "↓"; dnBtn.title = "Move day down";
     dnBtn.onclick = () => moveDay(di, 1);
-    head.appendChild(dnBtn);
+    top.appendChild(dnBtn);
     const delBtn = document.createElement("button");
     delBtn.className = "mini"; delBtn.textContent = "✕"; delBtn.title = "Remove day";
     delBtn.onclick = () => {
       if (day.stops.length && !confirm(`Remove "${day.title}" and its ${day.stops.length} stop(s)?`)) return;
       removeDay(day);
     };
-    head.appendChild(delBtn);
+    top.appendChild(delBtn);
+    head.appendChild(top);
+
+    // ---- bottom row: the descriptive title + trip badges (dated days) ----
+    if (dated) {
+      const bot = document.createElement("div"); bot.className = "day-botrow";
+      const titleInput = document.createElement("input");
+      titleInput.value = stripLeadingDate(day.title);
+      titleInput.placeholder = "Add a label for this day…";
+      titleInput.onchange = () => renameDay(day, titleInput.value);
+      bot.appendChild(titleInput);
+      if (dots) bot.appendChild(dots);
+      const drive = driveBadge(day, di);
+      if (drive) bot.appendChild(drive);
+      const wx = weatherChip(day);
+      if (wx) bot.appendChild(wx);
+      head.appendChild(bot);
+    }
     el.appendChild(head);
 
     if (isCollapsed) {
@@ -1745,7 +1842,7 @@ function renderQuest() {
       <line x1="${CX - 260}" y1="${b.y - 33}" x2="${CX - 170}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
       <line x1="${CX + 170}" y1="${b.y - 33}" x2="${CX + 260}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
       <circle cx="${CX - 158}" cy="${b.y - 33}" r="3.5" fill="${dayColor(b.di)}"/>
-      <text x="${CX}" y="${b.y - 28}" text-anchor="middle" font-size="14.5" font-style="italic" fill="${INK}" ${serif}>${esc(b.day.title.length > 42 ? b.day.title.slice(0, 41) + "…" : b.day.title)}</text>
+      <text x="${CX}" y="${b.y - 28}" text-anchor="middle" font-size="14.5" font-style="italic" fill="${INK}" ${serif}>${esc((() => { const iso = dayDateISO(b.day); const label = iso && !excludedDay(b.day) ? fmtDate(iso) + " — " + stripLeadingDate(b.day.title) : b.day.title; return label.length > 44 ? label.slice(0, 43) + "…" : label; })())}</text>
       ${subTxt ? `<text x="${CX}" y="${b.y - 11}" text-anchor="middle" font-size="8.5" fill="${MUTED}" letter-spacing="2">${subTxt}</text>` : ""}</g>`;
   });
 
@@ -2009,6 +2106,19 @@ $("btnGoLive").onclick = goLive;
 
 /* ---------- misc wiring ---------- */
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+/* The Plonk pin mascot as inline SVG (eyed exclamation-pin), tinted by tokens. */
+function pinMark(cls) {
+  return `<svg class="pinmark ${cls || ""}" viewBox="0 0 40 64" role="img" aria-label="Plonk">
+    <g transform="rotate(9 20 24)">
+      <path fill="var(--accent)" d="M20 2C11 2 4 9 4 17c0 10 16 24 16 24s16-14 16-24C36 9 29 2 20 2Z"/>
+      <circle cx="14.5" cy="15.5" r="4" fill="var(--panel)"/>
+      <circle cx="25.5" cy="15.5" r="4" fill="var(--panel)"/>
+      <circle cx="15.6" cy="16" r="1.8" fill="var(--ink)"/>
+      <circle cx="26.6" cy="16" r="1.8" fill="var(--ink)"/>
+    </g>
+    <circle cx="23" cy="57" r="5" fill="var(--accent)"/>
+  </svg>`;
+}
 function toast(msg, action) {
   const t = $("toast");
   t.textContent = msg;
@@ -2097,6 +2207,9 @@ async function boot() {
     userName = (n || "").trim();
     if (userName) localStorage.setItem(NAME_KEY, userName);
   }
+  $("addHeading").innerHTML = pinMark() + " Plonk a pin";
+  $("footerMark").innerHTML = pinMark();
+  $("mapMark").innerHTML = pinMark();
   map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
   map.on("dragstart zoomstart", () => { map._userMoved = true; });
   setBasemap(basemap);
