@@ -84,8 +84,8 @@ key and the Supabase project's schema contains only these trip tables.
 
 ## Roadmap ideas
 
-- Sync votes/visited/travelers (the migration above)
-- Real routing times via OSRM's free API
-- Google Takeout import for whole saved-places lists
+- Sync votes/visited/dates (the migration above)
+- Attach your own photos to stops (needs Supabase Storage)
+- Post-trip recap page: the route in gold, stats, everyone's die-die picks
 - oEmbed previews for Instagram/TikTok links (thumbnail cards instead of chips)
-- Booking-affiliate integration from inside the itinerary
+- Multiple trips + a home screen; push notifications for the installed app
