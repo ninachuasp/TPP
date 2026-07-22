@@ -180,8 +180,15 @@
     font-size: .62rem; font-weight: 600; color: var(--muted);
     letter-spacing: .09em; text-transform: uppercase; padding-top: 8px;
   }
-  .crew-dots { display: inline-flex; gap: 3px; align-items: center; flex-shrink: 0; }
-  .crew-dots i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .crew-ava { display: inline-flex; align-items: center; flex-shrink: 0; }
+  .crew-ava i {
+    font-style: normal; font-size: .82rem; line-height: 1;
+    width: 21px; height: 21px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--bg); border: 1.5px solid var(--panel); margin-left: -6px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.12);
+  }
+  .crew-ava i:first-child { margin-left: 0; }
   .drive-badge {
     font-size: .67rem; font-weight: 700; color: var(--muted); white-space: nowrap;
     background: var(--bg); border: 1px solid var(--line); border-radius: 20px; padding: 2px 8px;
@@ -818,29 +825,37 @@ function driveBadge(day, di) {
 }
 
 /* ---------- crew presence (derived from day titles) ----------
- * Crew A = Derek & Sean (12–20 Oct, red) · Crew B = Nina & Seth (14–24 Oct, blue) */
-const CREW_A = "#b0483f", CREW_B = "#3f5fa8";
-function crewDots(title) {
+ * Crew A = Derek & Sean (12–20 Oct) · Crew B = Nina & Seth (14–24 Oct).
+ * Shown as each traveler's emoji avatar so it reads without a legend. */
+const CREW_A_MEMBERS = ["Derek", "Sean"], CREW_B_MEMBERS = ["Nina", "Seth"];
+function crewOnDay(title) {
   const t = title.toLowerCase();
   const hasA = /crew a|derek|sean\b/.test(t);
   const hasB = /crew b|nina|seth\b/.test(t);
-  let dots = null;
-  if (/all 4|all4|everyone/.test(t) || (hasA && hasB)) dots = [CREW_A, CREW_A, CREW_B, CREW_B];
-  else if (hasA) dots = [CREW_A, CREW_A];
-  else if (hasB) dots = [CREW_B, CREW_B];
-  if (!dots) return null;
+  if (/all 4|all4|everyone/.test(t) || (hasA && hasB)) return [...CREW_A_MEMBERS, ...CREW_B_MEMBERS];
+  if (hasA) return CREW_A_MEMBERS;
+  if (hasB) return CREW_B_MEMBERS;
+  return null;
+}
+function crewDots(title) {
+  const people = crewOnDay(title);
+  if (!people) return null;
   const s = document.createElement("span");
-  s.className = "crew-dots";
-  s.title = dots.length === 4 ? "Derek, Sean, Nina & Seth" :
-    dots[0] === CREW_A ? "Derek & Sean" : "Nina & Seth";
-  dots.forEach(c => { const i = document.createElement("i"); i.style.background = c; s.appendChild(i); });
+  s.className = "crew-ava";
+  s.title = people.length > 2
+    ? people.slice(0, -1).join(", ") + " & " + people[people.length - 1]
+    : people.join(" & ");
+  people.forEach(n => { const i = document.createElement("i"); i.textContent = avatar(n); s.appendChild(i); });
   return s;
 }
 
 /* ---------- fun pack: avatars, trip-ometer, confetti, roulette ---------- */
 const AVATARS = ["🦊", "🐻", "🐧", "🦉", "🐯", "🦌", "🐙", "🐬", "🦜", "🐢"];
+const AVATAR_FIXED = { derek: "🐻", sean: "🦊", nina: "🐧", seth: "🦉" };
 function avatar(name) {
   if (!name) return "";
+  const fixed = AVATAR_FIXED[name.trim().toLowerCase()];
+  if (fixed) return fixed;
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return AVATARS[h % AVATARS.length];
