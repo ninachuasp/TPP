@@ -1,6 +1,6 @@
-# Detour 🧭
+# Jaunt 🧭
 
-**Plan the drive together.** A link-first, real-time group road-trip planner — built and
+**Little adventures, planned together.** A link-first, real-time group road-trip planner — built and
 test-driven with a **Sapporo road trip**. Investor memo: `pitch.html`.
 
 Open `index.html` in any browser (no build step, no server needed). It ships pre-seeded

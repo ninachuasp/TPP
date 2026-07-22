@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Detour — Sapporo Road Trip</title>
+<title>Jaunt — Sapporo Road Trip</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <style>
@@ -187,31 +187,37 @@
   }
   body.night .leaflet-popup-content a { color: #a294e0; }
 
-  /* ---- Quest view: the trip as a game world-map ---- */
+  /* ---- Journey view: the itinerary as an editorial travel journal ---- */
   #quest {
     flex: 1; overflow-y: auto; display: none; position: relative;
-    background: radial-gradient(1100px 500px at 75% -5%, #23375c 0%, #131a2e 50%, #0a0e1a 100%);
+    background:
+      radial-gradient(600px 400px at 12% 8%, rgba(194,117,81,.07), transparent 70%),
+      radial-gradient(700px 500px at 88% 30%, rgba(122,140,102,.08), transparent 70%),
+      linear-gradient(#fbf9f3, #f2ecdf);
   }
   #quest.on { display: block; }
   body.quest-on #sidebar, body.quest-on #map { display: none !important; }
   #quest svg { display: block; margin: 0 auto; max-width: 840px; width: 100%; height: auto; }
   #questCard {
-    position: sticky; bottom: 14px; margin: 0 auto; width: min(420px, 92%);
-    background: rgba(20, 26, 44, .95); color: #e8e8ef; border: 1px solid #35406b;
-    border-radius: 14px; padding: 13px 16px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    position: sticky; bottom: 14px; margin: 0 auto; width: min(430px, 92%);
+    background: rgba(255, 253, 248, .97); color: #3b3428; border: 1px solid #e2d9c4;
+    border-radius: 14px; padding: 14px 17px; box-shadow: 0 14px 44px rgba(90,75,50,.25);
     backdrop-filter: blur(6px); display: none;
   }
   #questCard.on { display: block; }
-  #questCard .qc-name { font-weight: 700; font-size: 1rem; }
-  #questCard .qc-desc { font-size: .78rem; color: #9aa4c7; font-style: italic; margin-top: 2px; }
-  #questCard .qc-row { display: flex; gap: 8px; margin-top: 9px; align-items: center; flex-wrap: wrap; }
+  #questCard .qc-name {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-weight: 700; font-size: 1.05rem;
+  }
+  #questCard .qc-desc { font-size: .79rem; color: #8d8371; font-style: italic; margin-top: 2px; }
+  #questCard .qc-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
   #questCard .qc-row a, #questCard .qc-row button {
-    font-size: .75rem; font-weight: 700; border-radius: 20px; padding: 4px 12px;
-    border: 1px solid #46527f; background: #232c4d; color: #cfd6f2;
+    font-size: .75rem; font-weight: 700; border-radius: 20px; padding: 4px 13px;
+    border: 1px solid #d9cfb6; background: #f7f2e6; color: #6b6250;
     text-decoration: none; cursor: pointer;
   }
-  #questCard .qc-row .gold { color: #ffd76a; border-color: #8a6d1f; }
-  #questCard img { width: 100%; max-height: 130px; object-fit: cover; border-radius: 9px; margin-top: 8px; }
+  #questCard .qc-row .gold { color: #8a6d1f; border-color: #cbb26a; background: #f8f0da; }
+  #questCard img { width: 100%; max-height: 150px; object-fit: cover; border-radius: 10px; margin-top: 9px; }
 
   dialog {
     border: none; border-radius: var(--radius); padding: 18px;
@@ -266,7 +272,7 @@
 </head>
 <body>
 <header>
-  <div class="brand"><b>🧭 Detour</b><small>plan the drive together</small></div>
+  <div class="brand"><b>🧭 Jaunt</b><small>little adventures, planned together</small></div>
   <h1><input id="tripTitle" value=""></h1>
   <span id="tripometer" class="tripometer"></span>
   <span id="liveBadge" title="Everyone with this link sees changes instantly">● LIVE</span>
@@ -1213,7 +1219,7 @@ function renderQuest() {
   const W = 840, AMP = 250, CX = W / 2;
   const nodes = [];   // {x, y, stop, day, di, si, globalIdx}
   const banners = []; // {y, day, di}
-  let y = 90, g = 0;
+  let y = 128, g = 0;
   trip.days.forEach((day, di) => {
     banners.push({ y, day, di });
     y += 74;
@@ -1236,13 +1242,6 @@ function renderQuest() {
     seen ? seen + " visited" : null,
   ].filter(Boolean).join("  ·  ").toUpperCase();
 
-  // background stars (deterministic)
-  let stars = "";
-  for (let i = 0; i < 90; i++) {
-    const sx = ((i * 337) % W), sy = ((i * 811) % H), r = (i % 3) * .5 + .5;
-    stars += `<circle cx="${sx}" cy="${sy}" r="${r}" fill="#fff" opacity="${.12 + (i % 5) * .06}"/>`;
-  }
-
   // smooth path through the nodes
   let path = "";
   if (nodes.length) {
@@ -1253,41 +1252,53 @@ function renderQuest() {
     }
   }
 
-  let out = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Trip quest map">
-    <defs><filter id="qglow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="3.5" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter></defs>
-    ${stars}
-    <text x="${CX}" y="42" text-anchor="middle" font-size="20" font-weight="800" fill="#e8e8ef" letter-spacing="3">${esc(trip.title.toUpperCase())}</text>
-    <text x="${CX}" y="64" text-anchor="middle" font-size="11" fill="#9aa4c7" letter-spacing="2">${subtitle}</text>
-    <path d="${path}" fill="none" stroke="#3d4a78" stroke-width="7" opacity=".55" stroke-linecap="round"/>
-    <path d="${path}" fill="none" stroke="#8b96c9" stroke-width="2.5" stroke-dasharray="1 12" stroke-linecap="round"/>`;
+  const INK = "#3b3428", MUTED = "#8d8371", RULE = "#d8cdb5";
+  const serif = `font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif"`;
+
+  // photo medallion clip paths
+  let defs = "<defs>";
+  nodes.forEach((n, i) => { defs += `<clipPath id="qc${i}"><circle cx="${n.x}" cy="${n.y}" r="26"/></clipPath>`; });
+  defs += "</defs>";
+
+  let out = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Trip journey">
+    ${defs}
+    <text x="${CX}" y="44" text-anchor="middle" font-size="26" font-weight="600" fill="${INK}" ${serif}>${esc(trip.title)}</text>
+    <text x="${CX}" y="68" text-anchor="middle" font-size="10.5" fill="${MUTED}" letter-spacing="2.5">${subtitle}</text>
+    <path d="${path}" fill="none" stroke="${RULE}" stroke-width="2" stroke-dasharray="1 9" stroke-linecap="round"/>`;
 
   banners.forEach(b => {
-    const color = dayColor(b.di);
     const r = dayRoute(b.day);
     const mins = routableDay(b.day) ? (r ? r.minutes : driveMinutes(b.day)) : 0;
-    const driveTxt = mins >= 10 ? `🚗 ${r ? "" : "≈"}${Math.floor(mins / 60) ? Math.floor(mins / 60) + "h " : ""}${mins % 60 ? mins % 60 + "m" : ""}` : "";
-    out += `<g><rect x="${CX - 210}" y="${b.y - 46}" width="420" height="34" rx="17" fill="#161d33" stroke="${color}" stroke-width="1.5"/>
-      <circle cx="${CX - 190}" cy="${b.y - 29}" r="6" fill="${color}"/>
-      <text x="${CX - (driveTxt ? 24 : 0)}" y="${b.y - 24}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#dfe4f5">${esc(b.day.title.length > 44 ? b.day.title.slice(0, 43) + "…" : b.day.title)}</text>
-      ${driveTxt ? `<text x="${CX + 198}" y="${b.y - 24}" text-anchor="end" font-size="11" fill="#9aa4c7">${driveTxt}</text>` : ""}</g>`;
+    const driveTxt = mins >= 10 ? `${r ? "" : "≈"}${Math.floor(mins / 60) ? Math.floor(mins / 60) + " H " : ""}${mins % 60 ? mins % 60 + " MIN" : ""} DRIVE` : "";
+    out += `<g>
+      <line x1="${CX - 260}" y1="${b.y - 33}" x2="${CX - 170}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
+      <line x1="${CX + 170}" y1="${b.y - 33}" x2="${CX + 260}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
+      <circle cx="${CX - 158}" cy="${b.y - 33}" r="3.5" fill="${dayColor(b.di)}"/>
+      <text x="${CX}" y="${b.y - 28}" text-anchor="middle" font-size="14.5" font-style="italic" fill="${INK}" ${serif}>${esc(b.day.title.length > 42 ? b.day.title.slice(0, 41) + "…" : b.day.title)}</text>
+      ${driveTxt ? `<text x="${CX}" y="${b.y - 11}" text-anchor="middle" font-size="8.5" fill="${MUTED}" letter-spacing="2">${driveTxt}</text>` : ""}</g>`;
   });
 
   nodes.forEach((n, i) => {
     const visited = isVisited(n.stop);
-    const color = visited ? "#ffd76a" : dayColor(n.di);
+    const color = dayColor(n.di);
     const musts = mustCount(n.stop), fires = fireCount(n.stop);
     const res = getReservation(n.stop);
+    const photo = stopPhoto(n.stop);
+    const wiki = wikiInfo(n.stop);
     const labelLeft = n.x > CX;
-    const lx = labelLeft ? n.x - 34 : n.x + 34;
+    const lx = labelLeft ? n.x - 40 : n.x + 40;
+    const anchor = labelLeft ? "end" : "start";
+    const desc = wiki && wiki.desc ? (wiki.desc.length > 34 ? wiki.desc.slice(0, 33) + "…" : wiki.desc) : "";
     out += `<g class="qnode" data-node="${i}" style="cursor:pointer">
-      <circle cx="${n.x}" cy="${n.y}" r="22" fill="${color}" opacity="${visited ? 1 : .92}" stroke="#0a0e1a" stroke-width="3" filter="url(#qglow)"/>
-      <text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="13" font-weight="800" fill="#10142a">${visited ? "✓" : n.si + 1}</text>
-      ${musts ? `<text x="${n.x + 18}" y="${n.y - 16}" font-size="13">💯</text>` : ""}
-      ${res ? `<text x="${n.x - 30}" y="${n.y - 14}" font-size="12">${res.kind === "hotel" ? "🏨" : res.kind === "dinner" ? "🍽️" : res.kind === "activity" ? "🎫" : "🚗"}</text>` : ""}
-      <text x="${lx}" y="${n.y + 4}" text-anchor="${labelLeft ? "end" : "start"}" font-size="12.5" font-weight="600" fill="${visited ? "#ffd76a" : "#cfd6f2"}">${esc(n.stop.name.length > 26 ? n.stop.name.slice(0, 25) + "…" : n.stop.name)}${fires ? `  🔥${fires}` : ""}</text>
+      <circle cx="${n.x}" cy="${n.y}" r="27.5" fill="#fffdf8" stroke="${visited ? "#c2a44e" : RULE}" stroke-width="${visited ? 2.5 : 1.5}"/>
+      <circle cx="${n.x}" cy="${n.y}" r="26" fill="${color}" opacity=".18"/>
+      ${photo ? `<image href="${esc(photo)}" x="${n.x - 26}" y="${n.y - 26}" width="52" height="52" clip-path="url(#qc${i})" preserveAspectRatio="xMidYMid slice"/>` : ""}
+      <circle cx="${n.x + 19}" cy="${n.y + 19}" r="10" fill="${visited ? "#c2a44e" : color}" stroke="#fffdf8" stroke-width="2"/>
+      <text x="${n.x + 19}" y="${n.y + 22.5}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff">${visited ? "✓" : n.si + 1}</text>
+      ${res ? `<text x="${n.x - 26}" y="${n.y - 22}" font-size="13">${res.kind === "hotel" ? "🏨" : res.kind === "dinner" ? "🍽️" : res.kind === "activity" ? "🎫" : "🚗"}</text>` : ""}
+      <text x="${lx}" y="${n.y - 1}" text-anchor="${anchor}" font-size="14" font-weight="600" fill="${INK}" ${serif}>${esc(n.stop.name.length > 26 ? n.stop.name.slice(0, 25) + "…" : n.stop.name)}</text>
+      ${desc ? `<text x="${lx}" y="${n.y + 15}" text-anchor="${anchor}" font-size="10" font-style="italic" fill="${MUTED}">${esc(desc)}</text>` : ""}
+      ${(musts || fires) ? `<text x="${lx}" y="${n.y + (desc ? 30 : 15)}" text-anchor="${anchor}" font-size="9.5" fill="${musts ? "#b0483f" : MUTED}" letter-spacing="1.5">${musts ? "MUST-DO" + (musts > 1 ? " ×" + musts : "") : ""}${musts && fires ? "  ·  " : ""}${fires ? "♡ " + fires : ""}</text>` : ""}
     </g>`;
   });
   out += `</svg>`;
