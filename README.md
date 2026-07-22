@@ -3,7 +3,9 @@
 **Friends plonk, we plan.** A link-first, real-time group road-trip planner — built and
 test-driven with a **Sapporo road trip**.
 
-Open `index.html` in any browser (no build step, no server needed). It ships pre-seeded
+Live at **https://ninachuasp.github.io/TPP/** (served from the `gh-pages` branch —
+to update the live site, copy the current `index.html` + `vendor/` onto that branch).
+Or open `index.html` in any browser (no build step, no server needed). It ships pre-seeded
 with a classic Hokkaido road-trip itinerary that you can edit, reorder, or wipe.
 
 ## What it does
