@@ -272,21 +272,54 @@
   #toast.show { opacity: 1; }
 
   @media print {
-    header .spacer ~ *, .add-box, #map, .stop .ops, .stop .acts, .day-head .mini, #liveBadge { display: none !important; }
+    header .spacer ~ *, .add-box, #map, .stop .ops, .stop .acts, .day-head .mini, #liveBadge, #mobileNav { display: none !important; }
     main { display: block; }
     #sidebar { width: 100%; max-width: none; border: none; }
     body { height: auto; }
   }
+  /* more-menu behaves inline on desktop, as a dropdown on mobile */
+  #moreMenu { display: contents; }
+  #btnMore { display: none; }
+  #mobileNav { display: none; }
+
   @media (max-width: 760px) {
-    main { flex-direction: column; }
-    #sidebar { width: 100%; max-width: none; order: 2; flex: 1; }
-    #map { height: 38vh; flex: none; }
-    header { padding: 8px 12px; gap: 8px; }
-    header h1 input { width: 100%; }
+    :root { font-size: 16px; } /* ≥16px inputs stop iOS zoom-on-focus */
+    header {
+      padding: calc(8px + env(safe-area-inset-top)) 10px 8px; gap: 6px;
+      position: relative;
+    }
+    header h1 { flex: 1; min-width: 40%; }
+    header h1 input { width: 100%; font-size: 1rem; }
+    .who, #btnQuest { display: none; }
     button, .btn { padding: 9px 13px; }
+    #btnMore { display: inline-block; }
+    #moreMenu {
+      display: none; position: absolute; top: 100%; right: 8px; z-index: 1600;
+      flex-direction: column; gap: 6px; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 12px; padding: 8px;
+      box-shadow: 0 12px 34px rgba(0,0,0,.25);
+    }
+    body.more-open #moreMenu { display: flex; }
+    main { flex-direction: column; padding-bottom: calc(54px + env(safe-area-inset-bottom)); }
+    #sidebar { width: 100%; max-width: none; flex: 1; border-right: none; }
+    #map { flex: 1; min-height: 0; }
+    body.mtab-plan #map { display: none; }
+    body.mtab-map #sidebar { display: none; }
+    #quest { padding-bottom: 70px; }
     .stop { padding: 11px 12px; }
-    .stop .acts button, .stop .acts a.navgo { padding: 5px 13px; font-size: .78rem; }
+    .stop .acts button, .stop .acts a.navgo { padding: 6px 14px; font-size: .8rem; }
     .stop .ops button { padding: 4px 8px; font-size: .9rem; }
+    #mobileNav {
+      display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 1500;
+      background: var(--panel); border-top: 1px solid var(--line);
+      padding: 6px max(10px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-right));
+      gap: 6px;
+    }
+    #mobileNav button {
+      flex: 1; border: none; background: none; border-radius: 10px;
+      font-size: .82rem; font-weight: 700; color: var(--muted); padding: 9px 0 7px;
+    }
+    #mobileNav button.on { color: var(--accent); background: var(--accent-soft); }
   }
 </style>
 </head>
@@ -304,9 +337,12 @@
   <button id="btnFollow" hidden title="Copy this trip into your own planner">⭐ Follow trip</button>
   <button id="btnGoLive" class="primary" hidden>⚡ Go live</button>
   <button id="btnShare" class="primary">🔗 Share trip link</button>
-  <button id="btnExport">⬇ Export JSON</button>
-  <button id="btnImport">⬆ Import</button>
-  <button id="btnPrint">🖨 Itinerary</button>
+  <button id="btnMore" title="More">⋯</button>
+  <div id="moreMenu">
+    <button id="btnExport">⬇ Export JSON</button>
+    <button id="btnImport">⬆ Import</button>
+    <button id="btnPrint">🖨 Itinerary</button>
+  </div>
   <input type="file" id="fileImport" accept=".json,.csv" hidden>
 </header>
 
@@ -338,6 +374,12 @@
     <div id="questCard"></div>
   </div>
 </main>
+
+<nav id="mobileNav">
+  <button data-tab="plan">📋 Plan</button>
+  <button data-tab="map">🗺️ Map</button>
+  <button data-tab="journey">✨ Journey</button>
+</nav>
 
 <dialog id="editDialog">
   <h3>Edit stop</h3>
@@ -1618,6 +1660,28 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
+/* ---------- mobile layout: bottom tabs + overflow menu ---------- */
+$("btnMore").onclick = (e) => { e.stopPropagation(); document.body.classList.toggle("more-open"); };
+document.addEventListener("click", (ev) => {
+  if (!ev.target.closest("#moreMenu") && ev.target.id !== "btnMore")
+    document.body.classList.remove("more-open");
+});
+["btnExport", "btnImport", "btnPrint"].forEach(id =>
+  $(id).addEventListener("click", () => document.body.classList.remove("more-open")));
+
+function setMtab(tab) {
+  document.body.classList.remove("mtab-plan", "mtab-map", "mtab-journey");
+  document.body.classList.add("mtab-" + tab);
+  document.querySelectorAll("#mobileNav button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  const wantQuest = tab === "journey";
+  if (wantQuest !== questOn) $("btnQuest").click();
+  if (tab === "map" && map) setTimeout(() => { map.invalidateSize(); }, 80);
+}
+document.querySelectorAll("#mobileNav button").forEach(b => { b.onclick = () => setMtab(b.dataset.tab); });
+const mobileMq = matchMedia("(max-width: 760px)");
+function onMqChange() { if (mobileMq.matches) setMtab("plan"); }
+mobileMq.addEventListener("change", onMqChange);
+
 $("tripTitle").onchange = (e) => setTripTitle(e.target.value);
 $("btnAdd").onclick = handleAdd;
 $("addInput").onkeydown = (e) => { if (e.key === "Enter") handleAdd(); };
@@ -1647,6 +1711,7 @@ async function boot() {
   };
   styleCtl.addTo(map);
   layerGroup = L.layerGroup().addTo(map);
+  if (mobileMq.matches) setMtab("plan");
 
   if (LIVE) {
     $("liveBadge").classList.add("on");
