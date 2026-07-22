@@ -364,8 +364,10 @@
   .stop.visited-row .num { background: #ca8a04 !important; }
   .stop .acts a.navgo {
     text-decoration: none; border: 1px solid var(--line); border-radius: 20px;
-    font-size: .7rem; padding: 2px 9px; color: var(--muted); font-weight: 600;
+    font-size: .7rem; padding: 2px 10px; color: var(--muted); font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px;
   }
+  .stop .acts a.navgo .picon { width: 13px; height: 13px; }
   .stop .acts a.navgo:hover { color: var(--accent); border-color: var(--accent); }
   .day-head .chev { border: none; background: none; padding: 0 2px; color: var(--muted); font-size: .8rem; }
   .day.today { border-color: var(--pop); box-shadow: 0 0 0 2px var(--pop); }
@@ -1958,7 +1960,6 @@ function render() {
       s.dataset.stopId = stop.id;
       const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join("");
-      const fires = fireCount(stop), musts = mustCount(stop);
       const photo = stopPhoto(stop);
       const wiki = wikiInfo(stop);
       s.innerHTML = `
@@ -1972,10 +1973,8 @@ function render() {
           ${links ? `<div class="links">${links}</div>` : ""}
           ${stop.notes ? `<div class="notes">${esc(stop.notes)}</div>` : ""}
           <div class="acts">
-            <button data-op="vote" class="${myVote(stop) === 1 ? "on" : ""}" title="${esc(voteNames(stop)) || "Vote this stop up"}">🔥${fires ? " " + fires : ""}</button>
-            <button data-op="must" class="${myVote(stop) === 2 ? "on" : ""}" title="Die-die must do — non-negotiable!">💯${musts ? " " + musts : ""}</button>
             <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
-            <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Navigate here in Google Maps">🧭 Go</a>
+            <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Get directions in Google Maps"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.4"/></svg> Google Maps</a>
           </div>
         </div>
         <div class="ops">
@@ -1988,11 +1987,6 @@ function render() {
       s.querySelector(".body").onclick = (ev) => {
         if (ev.target.tagName === "A" || ev.target.tagName === "BUTTON") return;
         map.setView([stop.lat, stop.lng], 13);
-      };
-      s.querySelector('[data-op=vote]').onclick = () => setVote(stop, 1);
-      s.querySelector('[data-op=must]').onclick = (ev) => {
-        if (myVote(stop) !== 2) confetti(ev.clientX, ev.clientY, 14);
-        setVote(stop, 2);
       };
       s.querySelector('[data-op=visited]').onclick = (ev) => {
         const wasVisited = isVisited(stop);
@@ -2196,7 +2190,7 @@ function showQuestCard(n) {
     ${photo ? `<img src="${esc(photo)}" alt="" onerror="this.remove()">` : ""}
     <div class="qc-row">
       <button data-q="visit" class="${visited ? "gold" : ""}">${visited ? "✓ visited" : "mark visited"}</button>
-      <a href="https://www.google.com/maps/dir/?api=1&destination=${n.stop.lat},${n.stop.lng}" target="_blank" rel="noopener">🧭 Navigate</a>
+      <a href="https://www.google.com/maps/dir/?api=1&destination=${n.stop.lat},${n.stop.lng}" target="_blank" rel="noopener">📍 Google Maps</a>
       <button data-q="close" style="margin-left:auto">✕</button>
     </div>`;
   card.classList.add("on");
