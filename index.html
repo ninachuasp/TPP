@@ -181,6 +181,19 @@
   }
   .stop .ops button:hover { color: var(--accent); }
   .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
+  .day-stay {
+    display: flex; align-items: center; gap: 7px; cursor: pointer;
+    padding: 9px 12px; border-top: 1px dashed var(--line);
+    font-size: .8rem; color: var(--ink);
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+  }
+  .day-stay:hover { background: var(--accent-soft); }
+  .stay-ico { font-size: .95rem; flex-shrink: 0; }
+  .stay-name { font-weight: 700; }
+  .stay-empty { color: var(--muted); font-style: italic; }
+  .stay-same { color: var(--muted); font-size: .72rem; }
+  .stay-edit { margin-left: auto; font-size: .68rem; font-weight: 700; color: var(--accent); opacity: .7; text-transform: uppercase; letter-spacing: .06em; }
+  .day-stay:hover .stay-edit { opacity: 1; }
 
   /* branded pin-mascot glyph, reusable */
   .pinmark { display: inline-block; vertical-align: middle; }
@@ -583,7 +596,7 @@ const SB_URL = "https://wcncgckvrvlvbmqergvd.supabase.co";
 const SB_KEY = "sb_publishable_1grF-44ak6XLoHYzuNOTaQ_5zQxlXK7";
 
 const DAY_COLORS = ["#c2410c","#0e7490","#7c3aed","#15803d","#b45309","#be185d","#1d4ed8","#4d7c0f","#9f1239","#374151"];
-const STORE_KEY = "tpp.trip.v3";
+const STORE_KEY = "tpp.trip.v4";
 const NAME_KEY = "tpp.username";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -600,49 +613,49 @@ function seedTrip() {
   return {
     title: "Sapporo Road Trip · 12–24 Oct",
     days: [
-      { id: uid(), date: "2026-10-12", title: "Sapporo · Derek & Sean", stops: [
+      { id: uid(), date: "2026-10-12", title: "Sapporo · Derek & Sean", lodging: "Sapporo — hotel TBD", stops: [
         mk("Nijo Market", 43.0570, 141.3612, [], "Land + morning kaisendon run"),
         mk("Odori Park & TV Tower", 43.0606, 141.3472, [], "Walk it off downtown"),
         mk("Sapporo Beer Garden", 43.0713, 141.3697, [{ type: "reservation", kind: "dinner", status: "pending", note: "18:30 — book ahead" }], "Genghis Khan BBQ dinner"),
         mk("Susukino", 43.0553, 141.3536, [], "Nightcap / ramen alley"),
       ]},
-      { id: uid(), date: "2026-10-13", title: "Sapporo & Jozankei · Derek & Sean", stops: [
+      { id: uid(), date: "2026-10-13", title: "Sapporo & Jozankei · Derek & Sean", lodging: "Sapporo — hotel TBD", stops: [
         mk("Hokkaido Shrine", 43.0545, 141.3079, [], "Maruyama Park autumn stroll"),
         mk("Shiroi Koibito Park", 43.0879, 141.2717),
         mk("Jozankei Onsen", 42.9679, 141.1678, [], "Peak koyo season — day-use onsen, ~50 min drive"),
         mk("Mt. Moiwa Ropeway", 43.0333, 141.3222, [], "Night view on the way back"),
       ]},
-      { id: uid(), date: "2026-10-14", title: "Pickup → Noboribetsu · all 4", stops: [
+      { id: uid(), date: "2026-10-14", title: "Pickup → Noboribetsu · all 4", lodging: "Noboribetsu onsen ryokan", stops: [
         mk("New Chitose Airport", 42.7752, 141.6923, [], "Collect Nina & Seth + rental car"),
         mk("Lake Shikotsu", 42.7600, 141.3400, [], "Lakeside foliage stop, 30 min from airport"),
         mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [{ type: "reservation", kind: "hotel", status: "pending", note: "onsen ryokan TBD" }], "Check into onsen ryokan, evening Hell Valley walk"),
       ]},
-      { id: uid(), date: "2026-10-15", title: "Noboribetsu → Lake Toya · all 4", stops: [
+      { id: uid(), date: "2026-10-15", title: "Noboribetsu → Lake Toya · all 4", lodging: "Lake Toya onsen hotel", stops: [
         mk("Usuzan Ropeway", 42.5430, 140.8280, [], "Volcano + caldera views"),
         mk("Lake Toya", 42.6048, 140.8464, [], "Lakefront onsen stay — nightly fireworks run to end of Oct"),
       ]},
-      { id: uid(), date: "2026-10-16", title: "Toya → Shakotan → Otaru · all 4", stops: [
+      { id: uid(), date: "2026-10-16", title: "Toya → Shakotan → Otaru · all 4", lodging: "Otaru — hotel TBD", stops: [
         mk("Niseko", 42.8048, 140.6874, [], "Coffee stop, Mt Yotei viewpoints"),
         mk("Cape Kamui", 43.3360, 140.3430, [], "Shakotan-blue cliff walk + uni-don lunch nearby"),
         mk("Otaru Canal", 43.1985, 140.9959, [], "Evening gaslight stroll — stay Otaru"),
       ]},
-      { id: uid(), date: "2026-10-17", title: "Otaru → Yoichi → Furano · all 4", stops: [
+      { id: uid(), date: "2026-10-17", title: "Otaru → Yoichi → Furano · all 4", lodging: "Furano — hotel TBD", stops: [
         mk("Sankaku Market", 43.1990, 140.9917, [], "Seafood breakfast"),
         mk("Nikka Whisky Yoichi Distillery", 43.1912, 140.7852, [], "Book tasting ahead"),
         mk("Ningle Terrace", 43.3187, 142.3819, [], "~3h drive; twilight craft huts — stay Furano"),
       ]},
-      { id: uid(), date: "2026-10-18", title: "Biei loop → Asahikawa · all 4", stops: [
+      { id: uid(), date: "2026-10-18", title: "Biei loop → Asahikawa · all 4", lodging: "Asahikawa — hotel TBD", stops: [
         mk("Blue Pond (Aoiike)", 43.4839, 142.6270, [], "Go early to beat tour buses"),
         mk("Shirahige Falls", 43.4740, 142.6360),
         mk("Patchwork Road, Biei", 43.6000, 142.4300, [], "Rolling farm hills drive"),
         mk("Shikisai-no-oka", 43.5387, 142.4785, [], "Autumn flower fields"),
         mk("Asahikawa Ramen Village", 43.7910, 142.4086, [], "Shoyu ramen dinner — stay Asahikawa"),
       ]},
-      { id: uid(), date: "2026-10-19", title: "Sounkyo → Sapporo · all 4", stops: [
+      { id: uid(), date: "2026-10-19", title: "Sounkyo → Sapporo · all 4", lodging: "Sapporo — hotel TBD", stops: [
         mk("Sounkyo Gorge", 43.7280, 142.9480, [], "Ginga & Ryusei falls, ropeway koyo — or swap for Asahiyama Zoo"),
         mk("Asahiyama Zoo", 43.7679, 142.4808, [], "Alternative to Sounkyo; then ~2h drive to Sapporo, farewell jingisukan dinner"),
       ]},
-      { id: uid(), date: "2026-10-20", title: "Farewell · all 4, Derek & Sean fly out", stops: [
+      { id: uid(), date: "2026-10-20", title: "Farewell · all 4, Derek & Sean fly out", lodging: "Sapporo — hotel TBD (Nina & Seth)", stops: [
         mk("Tanukikoji Shopping Street", 43.0574, 141.3517, [], "Souvenir run"),
         mk("New Chitose Airport", 42.7752, 141.6923, [], "Drop car + Derek & Sean fly out"),
       ]},
@@ -752,6 +765,47 @@ function promptDayDate(day) {
   const iso = v.trim();
   if (iso && !/^\d{4}-\d{2}-\d{2}$/.test(iso)) { toast("Use YYYY-MM-DD, e.g. 2026-10-14"); return; }
   setDayDate(day, iso || null);
+}
+
+/* ---------- accommodation per day/night ----------
+ * Synced via a feature-detected trip_days.lodging column; else per-device
+ * in live mode; stored on the trip object in local mode. */
+let LODGING_SYNC = false;
+const lodgingKey = () => "tpp.lodging." + (LIVE ? LIVE_TRIP_ID : "local");
+let localLodging = {};
+try { localLodging = JSON.parse(localStorage.getItem(lodgingKey()) || "{}"); } catch (e) {}
+function dayLodging(day) {
+  if (LIVE && !LODGING_SYNC) return localLodging[day.id] || "";
+  return day.lodging || "";
+}
+function setDayLodging(day, val) {
+  if (LIVE && LODGING_SYNC) {
+    day.lodging = val; render();
+    dbTry(sb.from("trip_days").update({ lodging: val }).eq("id", day.id));
+  } else if (LIVE) {
+    if (val) localLodging[day.id] = val; else delete localLodging[day.id];
+    localStorage.setItem(lodgingKey(), JSON.stringify(localLodging));
+    render();
+  } else {
+    day.lodging = val; persistLocal();
+  }
+}
+function prevLodging(day) {
+  const di = trip.days.indexOf(day);
+  for (let i = di - 1; i >= 0; i--) {
+    if (excludedDay(trip.days[i])) continue;
+    const l = dayLodging(trip.days[i]);
+    if (l) return l;
+  }
+  return "";
+}
+function editLodging(day) {
+  const prev = prevLodging(day);
+  const cur = dayLodging(day);
+  const v = prompt("🛏 Where are you staying tonight?" + (prev ? `\n(last night: ${prev} — press OK to keep the same)` : ""),
+    cur || prev || "");
+  if (v === null) return;
+  setDayLodging(day, v.trim());
 }
 
 /* ---------- weather (Open-Meteo, free & keyless, 16-day horizon) ---------- */
@@ -1173,9 +1227,10 @@ async function fetchLiveTrip() {
   if (t.error) throw t.error;
   SYNC_META = (s.data || []).length > 0 && ("votes" in s.data[0]);
   DATE_SYNC = (d.data || []).length > 0 && ("date" in d.data[0]);
+  LODGING_SYNC = (d.data || []).length > 0 && ("lodging" in d.data[0]);
   AVA_SYNC = ("avatars" in t.data);
   const days = (d.data || []).map(day => ({
-    id: day.id, title: day.title, date: day.date || null,
+    id: day.id, title: day.title, date: day.date || null, lodging: day.lodging || "",
     stops: (s.data || []).filter(x => x.day_id === day.id).map(x => ({
       id: x.id, name: x.name, lat: x.lat, lng: x.lng,
       links: x.links || [], notes: x.notes || "", addedBy: x.added_by || "",
@@ -1242,6 +1297,7 @@ function removeDay(day) {
     if (LIVE) {
       const ins = { trip_id: LIVE_TRIP_ID, title: copy.title, position: di };
       if (DATE_SYNC && copy.date) ins.date = copy.date;
+      if (LODGING_SYNC && copy.lodging) ins.lodging = copy.lodging;
       const d = await sb.from("trip_days").insert(ins).select().single();
       if (d.error) { toast("Undo failed: " + d.error.message); return; }
       if (copy.stops.length) {
@@ -1371,6 +1427,7 @@ async function restoreSnapshot(snap) {
       const day = snap.days[di];
       const ins = { trip_id: LIVE_TRIP_ID, title: day.title, position: di };
       if (DATE_SYNC && day.date) ins.date = day.date;
+      if (LODGING_SYNC && day.lodging) ins.lodging = day.lodging;
       const d = await sb.from("trip_days").insert(ins).select().single();
       if (d.error) throw d.error;
       if (day.stops.length) {
@@ -1722,6 +1779,20 @@ function render() {
       s.querySelector('[data-op=down]').onclick = () => moveStop(day, si, 1);
       el.appendChild(s);
     });
+
+    if (!excludedDay(day)) {
+      const stay = document.createElement("div");
+      stay.className = "day-stay";
+      const val = dayLodging(day);
+      const same = val && val === prevLodging(day);
+      stay.innerHTML = val
+        ? `<span class="stay-ico">🛏</span><span class="stay-name">${esc(val)}</span>` +
+          (same ? `<span class="stay-same">· same as last night</span>` : "") +
+          `<span class="stay-edit">edit</span>`
+        : `<span class="stay-ico">🛏</span><span class="stay-empty">＋ Add tonight's stay</span>`;
+      stay.onclick = () => editLodging(day);
+      el.appendChild(stay);
+    }
     container.appendChild(el);
   });
 
@@ -1837,7 +1908,9 @@ function renderQuest() {
     const mins = routableDay(b.day, b.di) ? (r ? r.minutes : driveMinutes(b.di)) : 0;
     const driveTxt = mins >= 10 ? `${r ? "" : "≈"}${Math.floor(mins / 60) ? Math.floor(mins / 60) + " H " : ""}${mins % 60 ? mins % 60 + " MIN" : ""} DRIVE` : "";
     const w = dayWeather(b.day);
-    const subTxt = [w ? `${WMO(w.code)} ${w.max}° / ${w.min}°` : "", driveTxt].filter(Boolean).join("   ·   ");
+    const lodge = dayLodging(b.day);
+    const subTxt = [w ? `${WMO(w.code)} ${w.max}° / ${w.min}°` : "", driveTxt,
+      lodge ? "🛏 " + lodge : ""].filter(Boolean).join("   ·   ");
     out += `<g>
       <line x1="${CX - 260}" y1="${b.y - 33}" x2="${CX - 170}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
       <line x1="${CX + 170}" y1="${b.y - 33}" x2="${CX + 260}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
