@@ -95,7 +95,14 @@
   header .logo .lg-eye { fill: var(--nav-bg); }
   header .logo .lg-pup { fill: var(--nav-ink); }
   header .logo .lg-dot { fill: var(--nav-ink); }
-  header .brand small { color: rgba(255,255,255,.72); }
+  header .brand small { color: rgba(255,255,255,.75); padding-top: 0; }
+  .tagwrap { display: flex; flex-direction: column; gap: 1px; padding-top: 7px; }
+  .tag-ul { width: 100%; height: 5px; color: var(--nav-ink); opacity: .65; }
+  /* nav decorations */
+  .nav-deco { position: absolute; inset: 0; pointer-events: none; color: var(--nav-ink); }
+  .nav-pin { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); height: 74px; fill: var(--nav-ink); opacity: .1; }
+  .nav-spark { position: absolute; color: var(--nav-ink); opacity: .45; font-size: .95rem; }
+  @media (max-width: 760px) { .nav-pin { right: 6px; height: 58px; opacity: .09; } }
   header #syncStatus { color: rgba(255,255,255,.72); }
   header .tripometer { background: rgba(255,255,255,.16); color: var(--nav-ink); }
   header #liveBadge { color: #a8f0c0; border-color: rgba(168,240,192,.6); }
@@ -532,6 +539,12 @@
 </svg>
 
 <header>
+  <span class="nav-deco" aria-hidden="true" style="z-index:0">
+    <svg class="nav-pin" viewBox="0 0 40 64"><g transform="rotate(14 20 24)"><path d="M20 2C11 2 4 9 4 17c0 10 16 24 16 24s16-14 16-24C36 9 29 2 20 2Z"/><circle cx="14.5" cy="15.5" r="4"/><circle cx="25.5" cy="15.5" r="4"/></g><circle cx="23" cy="57" r="5"/></svg>
+    <span class="nav-spark" style="top:9px;left:31%">✦</span>
+    <span class="nav-spark" style="bottom:10px;left:39%;font-size:.7rem">✧</span>
+    <span class="nav-spark" style="top:13px;left:58%;font-size:.8rem">✦</span>
+  </span>
   <div class="brand">
     <svg class="logo" viewBox="0 0 244 84" role="img" aria-label="Plonk!">
       <text class="lg-text" x="2" y="60" font-family="ui-rounded, 'Arial Rounded MT Bold', 'Nunito', 'Iowan Old Style', system-ui"
@@ -545,7 +558,10 @@
       </g>
       <circle class="lg-dot" cx="211" cy="57" r="5.5"/>
     </svg>
-    <small>friends plonk, we plan</small>
+    <span class="tagwrap">
+      <small>friends plonk, we plan</small>
+      <svg class="tag-ul" viewBox="0 0 120 6" preserveAspectRatio="none" filter="url(#rough)"><path d="M2 3.4 Q 30 1 60 3.2 T 118 2.8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </span>
   </div>
   <h1><input id="tripTitle" value=""></h1>
   <span id="tripometer" class="tripometer"></span>
