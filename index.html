@@ -187,6 +187,32 @@
   }
   body.night .leaflet-popup-content a { color: #a294e0; }
 
+  /* ---- Quest view: the trip as a game world-map ---- */
+  #quest {
+    flex: 1; overflow-y: auto; display: none; position: relative;
+    background: radial-gradient(1100px 500px at 75% -5%, #23375c 0%, #131a2e 50%, #0a0e1a 100%);
+  }
+  #quest.on { display: block; }
+  body.quest-on #sidebar, body.quest-on #map { display: none !important; }
+  #quest svg { display: block; margin: 0 auto; max-width: 840px; width: 100%; height: auto; }
+  #questCard {
+    position: sticky; bottom: 14px; margin: 0 auto; width: min(420px, 92%);
+    background: rgba(20, 26, 44, .95); color: #e8e8ef; border: 1px solid #35406b;
+    border-radius: 14px; padding: 13px 16px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    backdrop-filter: blur(6px); display: none;
+  }
+  #questCard.on { display: block; }
+  #questCard .qc-name { font-weight: 700; font-size: 1rem; }
+  #questCard .qc-desc { font-size: .78rem; color: #9aa4c7; font-style: italic; margin-top: 2px; }
+  #questCard .qc-row { display: flex; gap: 8px; margin-top: 9px; align-items: center; flex-wrap: wrap; }
+  #questCard .qc-row a, #questCard .qc-row button {
+    font-size: .75rem; font-weight: 700; border-radius: 20px; padding: 4px 12px;
+    border: 1px solid #46527f; background: #232c4d; color: #cfd6f2;
+    text-decoration: none; cursor: pointer;
+  }
+  #questCard .qc-row .gold { color: #ffd76a; border-color: #8a6d1f; }
+  #questCard img { width: 100%; max-height: 130px; object-fit: cover; border-radius: 9px; margin-top: 8px; }
+
   dialog {
     border: none; border-radius: var(--radius); padding: 18px;
     width: min(480px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.25);
@@ -247,6 +273,8 @@
   <span id="syncStatus"></span>
   <span class="who">planning as <b id="whoName" title="click to change your name">…</b></span>
   <span class="spacer"></span>
+  <button id="btnQuest">🎮 Quest view</button>
+  <button id="btnFollow" hidden title="Copy this trip into your own planner">⭐ Follow trip</button>
   <button id="btnGoLive" class="primary" hidden>⚡ Go live</button>
   <button id="btnShare" class="primary">🔗 Share trip link</button>
   <button id="btnExport">⬇ Export JSON</button>
@@ -278,6 +306,10 @@
     <button id="btnAddDay" style="width:100%">＋ Add a day</button>
   </div>
   <div id="map"></div>
+  <div id="quest">
+    <div id="questSvgHost"></div>
+    <div id="questCard"></div>
+  </div>
 </main>
 
 <dialog id="editDialog">
@@ -1125,6 +1157,7 @@ function render() {
 
   renderTripometer();
   renderMap();
+  renderQuest();
   refreshRoutes();
   refreshWiki();
 }
@@ -1170,6 +1203,142 @@ function renderMap() {
   });
   if (allPts.length && !map._userMoved) map.fitBounds(allPts, { padding: [40, 40] });
 }
+
+/* ---------- Quest view: trip as a game world-map ---------- */
+let questOn = false;
+const TRAVELERS = ["Derek", "Sean", "Nina", "Seth"];
+
+function renderQuest() {
+  if (!questOn) return;
+  const W = 840, AMP = 250, CX = W / 2;
+  const nodes = [];   // {x, y, stop, day, di, si, globalIdx}
+  const banners = []; // {y, day, di}
+  let y = 90, g = 0;
+  trip.days.forEach((day, di) => {
+    banners.push({ y, day, di });
+    y += 74;
+    day.stops.forEach((stop, si) => {
+      nodes.push({ x: CX + AMP * Math.sin(g * 1.05 + 1.2), y, stop, day, di, si, g });
+      y += 96; g++;
+    });
+    y += 18;
+  });
+  const H = y + 60;
+
+  const total = nodes.length;
+  const seen = nodes.filter(n => isVisited(n.stop)).length;
+  let lastVisited = -1;
+  nodes.forEach((n, i) => { if (isVisited(n.stop)) lastVisited = i; });
+
+  // background stars (deterministic)
+  let stars = "";
+  for (let i = 0; i < 90; i++) {
+    const sx = ((i * 337) % W), sy = ((i * 811) % H), r = (i % 3) * .5 + .5;
+    stars += `<circle cx="${sx}" cy="${sy}" r="${r}" fill="#fff" opacity="${.12 + (i % 5) * .06}"/>`;
+  }
+
+  // smooth path through the nodes
+  let path = "";
+  if (nodes.length) {
+    path = `M ${nodes[0].x} ${nodes[0].y}`;
+    for (let i = 1; i < nodes.length; i++) {
+      const p = nodes[i - 1], q = nodes[i];
+      path += ` C ${p.x} ${(p.y + q.y) / 2}, ${q.x} ${(p.y + q.y) / 2}, ${q.x} ${q.y}`;
+    }
+  }
+
+  let out = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Trip quest map">
+    <defs><filter id="qglow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter></defs>
+    ${stars}
+    <text x="${CX}" y="42" text-anchor="middle" font-size="21" font-weight="800" fill="#e8e8ef" letter-spacing="4">SAPPORO QUEST</text>
+    <text x="${CX}" y="64" text-anchor="middle" font-size="11" fill="#9aa4c7" letter-spacing="2">${seen} / ${total} STOPS CLEARED</text>
+    <path d="${path}" fill="none" stroke="#3d4a78" stroke-width="7" opacity=".55" stroke-linecap="round"/>
+    <path d="${path}" fill="none" stroke="#8b96c9" stroke-width="2.5" stroke-dasharray="1 12" stroke-linecap="round"/>`;
+
+  banners.forEach(b => {
+    const color = dayColor(b.di);
+    out += `<g><rect x="${CX - 190}" y="${b.y - 46}" width="380" height="34" rx="17" fill="#161d33" stroke="${color}" stroke-width="1.5"/>
+      <circle cx="${CX - 170}" cy="${b.y - 29}" r="6" fill="${color}"/>
+      <text x="${CX}" y="${b.y - 24}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#dfe4f5">${esc(b.day.title.length > 46 ? b.day.title.slice(0, 45) + "…" : b.day.title)}</text></g>`;
+  });
+
+  nodes.forEach((n, i) => {
+    const visited = isVisited(n.stop);
+    const color = visited ? "#ffd76a" : dayColor(n.di);
+    const musts = mustCount(n.stop), fires = fireCount(n.stop);
+    const res = getReservation(n.stop);
+    const labelLeft = n.x > CX;
+    const lx = labelLeft ? n.x - 34 : n.x + 34;
+    out += `<g class="qnode" data-node="${i}" style="cursor:pointer">
+      <circle cx="${n.x}" cy="${n.y}" r="22" fill="${color}" opacity="${visited ? 1 : .92}" stroke="#0a0e1a" stroke-width="3" filter="url(#qglow)"/>
+      <text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="${visited ? 15 : 13}" font-weight="800" fill="#10142a">${visited ? "★" : n.si + 1}</text>
+      ${musts ? `<text x="${n.x + 18}" y="${n.y - 16}" font-size="13">💯</text>` : ""}
+      ${res ? `<text x="${n.x - 30}" y="${n.y - 14}" font-size="12">${res.kind === "hotel" ? "🏨" : res.kind === "dinner" ? "🍽️" : res.kind === "activity" ? "🎫" : "🚗"}</text>` : ""}
+      <text x="${lx}" y="${n.y + 4}" text-anchor="${labelLeft ? "end" : "start"}" font-size="12.5" font-weight="600" fill="${visited ? "#ffd76a" : "#cfd6f2"}">${esc(n.stop.name.length > 26 ? n.stop.name.slice(0, 25) + "…" : n.stop.name)}${fires ? `  🔥${fires}` : ""}</text>
+    </g>`;
+  });
+
+  // the crew stands at the frontier (after the last cleared stop)
+  if (nodes.length) {
+    const fi = Math.min(lastVisited + 1, nodes.length - 1);
+    const fn = nodes[fi];
+    TRAVELERS.forEach((t, ti) => {
+      out += `<text x="${fn.x - 30 + ti * 20}" y="${fn.y - 30}" font-size="17" filter="url(#qglow)">${avatar(t)}</text>`;
+    });
+  }
+  out += `</svg>`;
+  $("questSvgHost").innerHTML = out;
+
+  document.querySelectorAll(".qnode").forEach(el => {
+    el.addEventListener("click", () => showQuestCard(nodes[+el.dataset.node]));
+  });
+}
+
+function showQuestCard(n) {
+  const card = $("questCard");
+  const wiki = wikiInfo(n.stop);
+  const photo = stopPhoto(n.stop);
+  const visited = isVisited(n.stop);
+  card.innerHTML = `
+    <div class="qc-name">${isVisited(n.stop) ? "★ " : ""}${esc(n.stop.name)}</div>
+    ${wiki && wiki.desc ? `<div class="qc-desc">${esc(wiki.desc)}</div>` : ""}
+    ${resBadgeHtml(n.stop)}
+    ${n.stop.notes ? `<div class="qc-desc">${esc(n.stop.notes)}</div>` : ""}
+    ${photo ? `<img src="${esc(photo)}" alt="" onerror="this.remove()">` : ""}
+    <div class="qc-row">
+      <button data-q="visit" class="${visited ? "gold" : ""}">${visited ? "★ cleared!" : "✓ clear this stop"}</button>
+      <a href="https://www.google.com/maps/dir/?api=1&destination=${n.stop.lat},${n.stop.lng}" target="_blank" rel="noopener">🧭 Go</a>
+      <button data-q="close" style="margin-left:auto">✕</button>
+    </div>`;
+  card.classList.add("on");
+  card.querySelector("[data-q=visit]").onclick = (ev) => {
+    const was = isVisited(n.stop);
+    toggleVisited(n.stop);
+    if (!was) confetti(ev.clientX, ev.clientY, 30);
+    card.classList.remove("on");
+  };
+  card.querySelector("[data-q=close]").onclick = () => card.classList.remove("on");
+}
+
+$("btnQuest").onclick = () => {
+  questOn = !questOn;
+  document.body.classList.toggle("quest-on", questOn);
+  $("quest").classList.toggle("on", questOn);
+  $("btnQuest").textContent = questOn ? "🗺️ Map view" : "🎮 Quest view";
+  if (questOn) renderQuest();
+  else { $("questCard").classList.remove("on"); map.invalidateSize(); }
+};
+
+/* ---------- follow (clone a shared trip into your own planner) ---------- */
+$("btnFollow").onclick = () => {
+  const copy = JSON.parse(JSON.stringify(trip));
+  delete copy.id;
+  localStorage.setItem(STORE_KEY, JSON.stringify(copy));
+  toast("⭐ Trip copied to your planner — open the page without ?trip= and it's yours to remix");
+};
 
 /* ---------- edit dialog ---------- */
 let editing = null;
@@ -1397,6 +1566,7 @@ async function boot() {
 
   if (LIVE) {
     $("liveBadge").classList.add("on");
+    $("btnFollow").hidden = false;
     // paint the cached copy instantly, then reconcile with the network
     const cached = localStorage.getItem(cacheKey());
     if (cached) {
