@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plonk — Sapporo Road Trip</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📍</text></svg>">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#c2410c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <style>
   :root {
@@ -18,6 +23,19 @@
     --live: #15803d;
     --radius: 12px;
     font-size: 15px;
+  }
+  /* ---- UI skins: token overrides picked with the 🎨 button ---- */
+  :root[data-skin="midnight"] {
+    --bg: #14171f; --panel: #1d222e; --ink: #e8e8ef; --muted: #98a0b4;
+    --line: #313a4e; --accent: #a294e0; --accent-soft: #2b2a45;
+  }
+  :root[data-skin="matcha"] {
+    --bg: #f1f5ee; --panel: #fbfdf8; --ink: #26302a; --muted: #7d8a80;
+    --line: #dbe5d6; --accent: #3d7a55; --accent-soft: #e5f2e9;
+  }
+  :root[data-skin="sakura"] {
+    --bg: #faf4f5; --panel: #fffcfc; --ink: #3a2e33; --muted: #97848b;
+    --line: #eddfe3; --accent: #c2497a; --accent-soft: #fbe9f1;
   }
   * { box-sizing: border-box; margin: 0; }
   body {
@@ -69,7 +87,7 @@
   .add-box input, .add-box select, .add-box textarea {
     font: inherit; font-size: .85rem; flex: 1; min-width: 0;
     border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px;
-    background: #fcfbf8;
+    background: var(--panel); color: var(--ink);
   }
   .add-box input:focus, .add-box textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
   .hint { font-size: .72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
@@ -112,7 +130,9 @@
     font-size: .7rem; text-decoration: none; color: var(--accent);
     background: var(--accent-soft); padding: 2px 8px; border-radius: 20px;
   }
-  .stop .notes { font-size: .77rem; margin-top: 4px; color: #57503f; white-space: pre-wrap; }
+  .stop .notes { font-size: .77rem; margin-top: 4px; color: var(--muted); white-space: pre-wrap; }
+  dialog { background: var(--panel); color: var(--ink); }
+  dialog input, dialog select, dialog textarea { background: var(--panel); color: var(--ink); }
   .stop .ops { display: flex; flex-direction: column; gap: 2px; }
   .stop .ops button {
     border: none; background: none; padding: 1px 4px; font-size: .75rem; color: var(--muted);
@@ -279,6 +299,7 @@
   <span id="syncStatus"></span>
   <span class="who">planning as <b id="whoName" title="click to change your name">…</b></span>
   <span class="spacer"></span>
+  <button id="btnSkin" title="Change the look">🎨</button>
   <button id="btnQuest">✨ Journey view</button>
   <button id="btnFollow" hidden title="Copy this trip into your own planner">⭐ Follow trip</button>
   <button id="btnGoLive" class="primary" hidden>⚡ Go live</button>
@@ -1566,6 +1587,35 @@ function toast(msg) {
   const t = $("toast");
   t.textContent = msg; t.classList.add("show");
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500);
+}
+
+/* ---------- UI skins ---------- */
+const SKINS = [
+  { id: "", name: "Washi 🏮" },
+  { id: "midnight", name: "Midnight 🌌" },
+  { id: "matcha", name: "Matcha 🍵" },
+  { id: "sakura", name: "Sakura 🌸" },
+];
+let skin = localStorage.getItem("tpp.skin") || "";
+function applySkin(id) {
+  skin = id;
+  localStorage.setItem("tpp.skin", id);
+  if (id) document.documentElement.dataset.skin = id;
+  else delete document.documentElement.dataset.skin;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#c2410c";
+}
+applySkin(skin);
+$("btnSkin").onclick = () => {
+  const i = SKINS.findIndex(s => s.id === skin);
+  const next = SKINS[(i + 1) % SKINS.length];
+  applySkin(next.id);
+  toast("Skin: " + next.name);
+};
+
+/* ---------- PWA ---------- */
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
 $("tripTitle").onchange = (e) => setTripTitle(e.target.value);
