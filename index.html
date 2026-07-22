@@ -517,30 +517,53 @@ function haversineKm(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-function driveMinutes(day) {
+/* Each day's route starts from where the crew wakes up — the previous
+ * routable day's last stop — so the whole trip draws as one flowing route
+ * and drive times include the morning leg. */
+const excludedDay = day => /idea|unassigned|wish|solo/i.test(day.title);
+function dayAnchor(di) {
+  for (let i = di - 1; i >= 0; i--) {
+    const d = trip.days[i];
+    if (excludedDay(d) || !d.stops.length) continue;
+    const last = d.stops[d.stops.length - 1];
+    return [last.lat, last.lng];
+  }
+  return null;
+}
+function dayCoords(di) {
+  const day = trip.days[di];
+  const pts = day.stops.map(s => [s.lat, s.lng]);
+  if (excludedDay(day)) return pts;
+  const anchor = dayAnchor(di);
+  return anchor ? [anchor, ...pts] : pts;
+}
+const routableDay = (day, di) => !excludedDay(day) && dayCoords(di).length >= 2;
+
+function driveMinutes(di) {
+  const pts = dayCoords(di);
   let km = 0;
-  for (let i = 1; i < day.stops.length; i++)
-    km += haversineKm([day.stops[i - 1].lat, day.stops[i - 1].lng], [day.stops[i].lat, day.stops[i].lng]);
+  for (let i = 1; i < pts.length; i++) km += haversineKm(pts[i - 1], pts[i]);
   // straight-line distance × road-winding factor, at rural average speed
   return Math.round(km * 1.3 / 55 * 60);
 }
+
 /* Real road routing via the public OSRM server, cached per day-route;
  * falls back to the haversine estimate offline. */
 let osrmCache = {};
 try { osrmCache = JSON.parse(localStorage.getItem("tpp.osrm") || "{}"); } catch (e) {}
 const osrmPending = new Set(), osrmFailed = new Set();
-const routableDay = day => day.stops.length >= 2 && !/idea|unassigned|wish|solo/i.test(day.title);
-const dayRouteKey = day => day.stops.map(s => s.lat.toFixed(4) + "," + s.lng.toFixed(4)).join(";");
-const dayRoute = day => routableDay(day) ? osrmCache[dayRouteKey(day)] : null;
+const dayRouteKey = di => dayCoords(di).map(p => p[0].toFixed(4) + "," + p[1].toFixed(4)).join(";");
+const dayRoute = (day, di) => routableDay(day, di) ? osrmCache[dayRouteKey(di)] : null;
 async function refreshRoutes() {
   let updated = false;
-  for (const day of trip.days) {
-    if (!routableDay(day)) continue;
-    const key = dayRouteKey(day);
+  for (let di = 0; di < trip.days.length; di++) {
+    const day = trip.days[di];
+    if (!routableDay(day, di)) continue;
+    const key = dayRouteKey(di);
     if (osrmCache[key] || osrmPending.has(key) || osrmFailed.has(key)) continue;
     osrmPending.add(key);
     try {
-      const coords = day.stops.map(s => s.lng + "," + s.lat).join(";");
+      const coords = dayCoords(di).map(p => p[1] + "," + p[0]).join(";");
       const res = await fetch("https://router.project-osrm.org/route/v1/driving/" + coords + "?overview=simplified&geometries=geojson");
       const j = await res.json();
       if (j.code === "Ok" && j.routes && j.routes[0]) {
@@ -559,16 +582,16 @@ async function refreshRoutes() {
     render();
   }
 }
-function driveBadge(day) {
-  if (!routableDay(day)) return null;
-  const r = dayRoute(day);
-  const m = r ? r.minutes : driveMinutes(day);
+function driveBadge(day, di) {
+  if (!routableDay(day, di)) return null;
+  const r = dayRoute(day, di);
+  const m = r ? r.minutes : driveMinutes(di);
   if (m < 10) return null;
   const h = Math.floor(m / 60), mm = m % 60;
   const el = document.createElement("span");
   el.className = "drive-badge" + (m > 270 ? " hot" : m > 180 ? " warn" : "");
   el.textContent = "🚗 " + (r ? "" : "≈") + (h ? h + "h " : "") + (mm ? mm + "m" : "") + (r ? " · " + r.km + " km" : "");
-  el.title = r ? "Driving time via roads" : "Estimated driving time between stops";
+  el.title = r ? "Driving time via roads, from the previous night's stop" : "Estimated driving time, from the previous night's stop";
   return el;
 }
 
@@ -1067,7 +1090,7 @@ function render() {
     if (today) head.insertAdjacentHTML("beforeend", `<span class="today-chip">TODAY</span>`);
     const dots = crewDots(day.title);
     if (dots) head.appendChild(dots);
-    const drive = driveBadge(day);
+    const drive = driveBadge(day, di);
     if (drive) head.appendChild(drive);
     if (day.stops.length >= 2) {
       const spin = document.createElement("button");
@@ -1195,15 +1218,16 @@ function renderMap() {
       pts.push([stop.lat, stop.lng]);
       allPts.push([stop.lat, stop.lng]);
     });
-    if (pts.length > 1 && !/idea|unassigned|wish|solo/i.test(day.title)) {
-      const r = dayRoute(day);
+    const cpts = dayCoords(di);
+    if (cpts.length > 1 && !excludedDay(day)) {
+      const r = dayRoute(day, di);
       // wide soft underlay + bright core = neon glow, especially on the night map
       if (r && r.line) {
         layerGroup.addLayer(L.polyline(r.line, { color, weight: 9, opacity: .22 }));
         layerGroup.addLayer(L.polyline(r.line, { color, weight: 3, opacity: .95 }));
       } else {
-        layerGroup.addLayer(L.polyline(pts, { color, weight: 8, opacity: .15 }));
-        layerGroup.addLayer(L.polyline(pts, { color, weight: 3, opacity: .7, dashArray: "6 8" }));
+        layerGroup.addLayer(L.polyline(cpts, { color, weight: 8, opacity: .15 }));
+        layerGroup.addLayer(L.polyline(cpts, { color, weight: 3, opacity: .7, dashArray: "6 8" }));
       }
     }
   });
@@ -1267,8 +1291,8 @@ function renderQuest() {
     <path d="${path}" fill="none" stroke="${RULE}" stroke-width="2" stroke-dasharray="1 9" stroke-linecap="round"/>`;
 
   banners.forEach(b => {
-    const r = dayRoute(b.day);
-    const mins = routableDay(b.day) ? (r ? r.minutes : driveMinutes(b.day)) : 0;
+    const r = dayRoute(b.day, b.di);
+    const mins = routableDay(b.day, b.di) ? (r ? r.minutes : driveMinutes(b.di)) : 0;
     const driveTxt = mins >= 10 ? `${r ? "" : "≈"}${Math.floor(mins / 60) ? Math.floor(mins / 60) + " H " : ""}${mins % 60 ? mins % 60 + " MIN" : ""} DRIVE` : "";
     out += `<g>
       <line x1="${CX - 260}" y1="${b.y - 33}" x2="${CX - 170}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
