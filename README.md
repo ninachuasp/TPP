@@ -62,7 +62,10 @@ key and the Supabase project's schema contains only these trip tables.
   ```sql
   alter table trip_stops add column votes jsonb not null default '{}';
   alter table trip_stops add column visited boolean not null default false;
+  alter table trip_days add column date date;
   ```
+  (The `date` column likewise makes each day's calendar date sync; until then
+  dates are per-device with a title-parse fallback.)
 - **🧭 Go** — one-tap Google Maps navigation to any stop, for use on the road.
 - **Real road routing** — day routes and drive times come from the public OSRM
   server (cached per route; badge shows exact time + km, and the map draws the
