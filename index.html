@@ -265,11 +265,17 @@
 
   #toast {
     position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-    background: var(--ink); color: #fff; font-size: .82rem;
+    background: var(--ink); color: var(--bg); font-size: .82rem;
     padding: 9px 16px; border-radius: 24px; opacity: 0; pointer-events: none;
     transition: opacity .25s; z-index: 2000; max-width: 92vw;
   }
   #toast.show { opacity: 1; }
+  #toast.actionable { pointer-events: auto; }
+  .toast-btn {
+    margin-left: 10px; border: none; border-radius: 16px; padding: 4px 12px;
+    font-size: .78rem; font-weight: 800; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  @media (max-width: 760px) { #toast { bottom: calc(70px + env(safe-area-inset-bottom)); } }
 
   @media print {
     header .spacer ~ *, .add-box, #map, .stop .ops, .stop .acts, .day-head .mini, #liveBadge, #mobileNav { display: none !important; }
@@ -342,6 +348,7 @@
     <button id="btnExport">⬇ Export JSON</button>
     <button id="btnImport">⬆ Import</button>
     <button id="btnPrint">🖨 Itinerary</button>
+    <button id="btnBackups">🕰 Backups</button>
   </div>
   <input type="file" id="fileImport" accept=".json,.csv" hidden>
 </header>
@@ -414,6 +421,13 @@
       <button type="submit" class="primary" id="btnSaveEdit">Save</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="backupDialog">
+  <h3>🕰 Backups</h3>
+  <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Snapshots taken automatically on this device. Tap one to restore it.</p>
+  <div id="backupList"></div>
+  <div class="actions"><button type="button" id="btnBackupClose">Close</button></div>
 </dialog>
 
 <div id="toast"></div>
@@ -554,13 +568,109 @@ function toggleVisited(stop) {
   }
 }
 
-/* ---------- today detection (parsed from day titles like "Tue 14 Oct") ---------- */
+/* ---------- day dates ----------
+ * Priority: synced `date` column on trip_days (feature-detected) →
+ * per-device map → parsed from the title as a fallback. */
 const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
-function isToday(title) {
-  const m = title.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
-  if (!m) return false;
+let DATE_SYNC = false;
+const datesKey = () => "tpp.dates." + (LIVE ? LIVE_TRIP_ID : "local");
+let localDates = {};
+try { localDates = JSON.parse(localStorage.getItem(datesKey()) || "{}"); } catch (e) {}
+function dayDateISO(day) {
+  if (day.date) return day.date;
+  if (localDates[day.id]) return localDates[day.id];
+  const p = day.title.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+  if (!p) return null;
+  return new Date().getFullYear() + "-" +
+    String(MONTHS[p[2].toLowerCase()] + 1).padStart(2, "0") + "-" + String(+p[1]).padStart(2, "0");
+}
+const todayISO = () => {
   const n = new Date();
-  return n.getDate() === +m[1] && n.getMonth() === MONTHS[m[2].toLowerCase()];
+  return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0");
+};
+const isToday = day => dayDateISO(day) === todayISO();
+function setDayDate(day, iso) {
+  if (LIVE && DATE_SYNC) {
+    day.date = iso; render();
+    dbTry(sb.from("trip_days").update({ date: iso }).eq("id", day.id));
+  } else {
+    if (iso) localDates[day.id] = iso; else delete localDates[day.id];
+    localStorage.setItem(datesKey(), JSON.stringify(localDates));
+    render();
+  }
+}
+function promptDayDate(day) {
+  const cur = dayDateISO(day) || "";
+  const v = prompt("Date for this day (YYYY-MM-DD, blank to clear):", cur);
+  if (v === null) return;
+  const iso = v.trim();
+  if (iso && !/^\d{4}-\d{2}-\d{2}$/.test(iso)) { toast("Use YYYY-MM-DD, e.g. 2026-10-14"); return; }
+  setDayDate(day, iso || null);
+}
+
+/* ---------- weather (Open-Meteo, free & keyless, 16-day horizon) ---------- */
+let weatherCache = {};
+try { weatherCache = JSON.parse(localStorage.getItem("tpp.weather") || "{}"); } catch (e) {}
+const wxPending = new Set(), wxFailed = new Set();
+const WMO = c => c === 0 ? "☀️" : c <= 2 ? "🌤" : c === 3 ? "☁️" : c < 49 ? "🌫" : c < 58 ? "🌦" :
+  c < 68 ? "🌧" : c < 78 ? "🌨" : c < 83 ? "🌧" : c < 87 ? "🌨" : "⛈";
+function wxKey(day) {
+  const iso = dayDateISO(day);
+  if (!iso || !day.stops.length) return null;
+  const s = day.stops[0];
+  return iso + "|" + s.lat.toFixed(1) + "," + s.lng.toFixed(1);
+}
+function wxInRange(iso) {
+  const d = new Date(iso + "T00:00:00"), n = new Date(todayISO() + "T00:00:00");
+  const diff = (d - n) / 864e5;
+  return diff >= 0 && diff <= 15;
+}
+function dayWeather(day) {
+  const k = wxKey(day);
+  if (!k) return null;
+  const w = weatherCache[k];
+  return (w && Date.now() - w.at < 3 * 3600e3) ? w : null;
+}
+async function refreshWeather() {
+  let updated = false;
+  for (const day of trip.days) {
+    const k = wxKey(day);
+    if (!k) continue;
+    const iso = k.split("|")[0];
+    if (!wxInRange(iso) || dayWeather(day) || wxPending.has(k) || wxFailed.has(k)) continue;
+    wxPending.add(k);
+    try {
+      const s = day.stops[0];
+      const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + s.lat.toFixed(3) +
+        "&longitude=" + s.lng.toFixed(3) +
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo" +
+        "&start_date=" + iso + "&end_date=" + iso);
+      const j = await res.json();
+      if (j.daily && j.daily.weather_code) {
+        weatherCache[k] = {
+          code: j.daily.weather_code[0],
+          max: Math.round(j.daily.temperature_2m_max[0]),
+          min: Math.round(j.daily.temperature_2m_min[0]),
+          at: Date.now(),
+        };
+        updated = true;
+      } else wxFailed.add(k);
+    } catch (e) { wxFailed.add(k); }
+    wxPending.delete(k);
+  }
+  if (updated) {
+    try { localStorage.setItem("tpp.weather", JSON.stringify(weatherCache)); } catch (e) {}
+    render();
+  }
+}
+function weatherChip(day) {
+  const w = dayWeather(day);
+  if (!w) return null;
+  const el = document.createElement("span");
+  el.className = "drive-badge";
+  el.textContent = `${WMO(w.code)} ${w.max}°/${w.min}°`;
+  el.title = "Forecast at the day's first stop (Open-Meteo)";
+  return el;
 }
 
 /* ---------- collapsed days ---------- */
@@ -690,9 +800,9 @@ function avatar(name) {
 function tripDates() {
   let min = null, max = null;
   for (const d of trip.days) {
-    const m = d.title.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
-    if (!m) continue;
-    const dt = new Date(new Date().getFullYear(), MONTHS[m[2].toLowerCase()], +m[1]);
+    const iso = dayDateISO(d);
+    if (!iso) continue;
+    const dt = new Date(iso + "T00:00:00");
     if (!min || dt < min) min = dt;
     if (!max || dt > max) max = dt;
   }
@@ -860,8 +970,9 @@ async function fetchLiveTrip() {
   ]);
   if (t.error) throw t.error;
   SYNC_META = (s.data || []).length > 0 && ("votes" in s.data[0]);
+  DATE_SYNC = (d.data || []).length > 0 && ("date" in d.data[0]);
   const days = (d.data || []).map(day => ({
-    id: day.id, title: day.title,
+    id: day.id, title: day.title, date: day.date || null,
     stops: (s.data || []).filter(x => x.day_id === day.id).map(x => ({
       id: x.id, name: x.name, lat: x.lat, lng: x.lng,
       links: x.links || [], notes: x.notes || "", addedBy: x.added_by || "",
@@ -922,8 +1033,42 @@ function renameDay(day, title) {
   else persistLocal();
 }
 function removeDay(day) {
+  const di = trip.days.indexOf(day);
+  const copy = JSON.parse(JSON.stringify(day));
+  const undo = async () => {
+    if (LIVE) {
+      const ins = { trip_id: LIVE_TRIP_ID, title: copy.title, position: di };
+      if (DATE_SYNC && copy.date) ins.date = copy.date;
+      const d = await sb.from("trip_days").insert(ins).select().single();
+      if (d.error) { toast("Undo failed: " + d.error.message); return; }
+      if (copy.stops.length) {
+        const rows = copy.stops.map((s, si) => {
+          const r = { trip_id: LIVE_TRIP_ID, day_id: d.data.id, name: s.name, lat: s.lat, lng: s.lng,
+            links: s.links || [], notes: s.notes || "", added_by: s.addedBy || "", position: si };
+          if (SYNC_META) { r.votes = s.votes || {}; r.visited = !!s.visited; }
+          return r;
+        });
+        await sb.from("trip_stops").insert(rows);
+      }
+      scheduleRefresh();
+    } else {
+      trip.days.splice(di, 0, copy); persistLocal();
+    }
+  };
   if (LIVE) dbTry(sb.from("trip_days").delete().eq("id", day.id));
   else { trip.days = trip.days.filter(d => d.id !== day.id); persistLocal(); }
+  toast(`Removed "${day.title}"`, { label: "Undo", fn: undo });
+}
+
+function moveDay(di, delta) {
+  const dj = di + delta;
+  if (dj < 0 || dj >= trip.days.length) return;
+  [trip.days[di], trip.days[dj]] = [trip.days[dj], trip.days[di]];
+  if (LIVE) {
+    render();
+    Promise.all(trip.days.map((d, i) => sb.from("trip_days").update({ position: i }).eq("id", d.id)))
+      .then(scheduleRefresh);
+  } else persistLocal();
 }
 function addStopM(dayId, { name, lat, lng, links }) {
   const day = trip.days.find(d => d.id === dayId) || trip.days[trip.days.length - 1];
@@ -958,8 +1103,91 @@ function updateStopM(day, stop, fields, newDayId) {
   }
 }
 function deleteStopM(day, stop) {
+  const si = day.stops.indexOf(stop);
+  const copy = JSON.parse(JSON.stringify(stop));
+  const undo = async () => {
+    if (LIVE) {
+      const r = { trip_id: LIVE_TRIP_ID, day_id: day.id, name: copy.name, lat: copy.lat, lng: copy.lng,
+        links: copy.links || [], notes: copy.notes || "", added_by: copy.addedBy || "", position: si };
+      if (SYNC_META) { r.votes = copy.votes || {}; r.visited = !!copy.visited; }
+      const res = await sb.from("trip_stops").insert(r);
+      if (res.error) { toast("Undo failed: " + res.error.message); return; }
+      scheduleRefresh();
+    } else {
+      day.stops.splice(si, 0, copy); persistLocal();
+    }
+  };
   if (LIVE) dbTry(sb.from("trip_stops").delete().eq("id", stop.id));
   else { day.stops = day.stops.filter(s => s.id !== stop.id); persistLocal(); }
+  toast(`Deleted "${stop.name}"`, { label: "Undo", fn: undo });
+}
+
+/* ---------- automatic backups (rolling local snapshots) ---------- */
+const backupsKey = () => "tpp.backups." + (LIVE ? LIVE_TRIP_ID : "local");
+function takeSnapshot() {
+  if (!trip) return;
+  try {
+    const list = JSON.parse(localStorage.getItem(backupsKey()) || "[]");
+    const data = JSON.stringify(trip);
+    if (list.length && list[list.length - 1].data === data) return;
+    list.push({ t: Date.now(), data });
+    while (list.length > 12) list.shift();
+    localStorage.setItem(backupsKey(), JSON.stringify(list));
+  } catch (e) {}
+}
+function openBackups() {
+  const list = JSON.parse(localStorage.getItem(backupsKey()) || "[]").slice().reverse();
+  const box = $("backupList");
+  box.innerHTML = list.length ? "" : "<p style='font-size:.85rem'>No snapshots yet — one is taken on every visit and every 10 minutes while planning.</p>";
+  list.forEach(snap => {
+    const t = JSON.parse(snap.data);
+    const stops = t.days.reduce((a, d) => a + d.stops.length, 0);
+    const b = document.createElement("button");
+    b.style.cssText = "display:block;width:100%;text-align:left;margin-bottom:6px";
+    b.textContent = `${new Date(snap.t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} — ${t.days.length} days · ${stops} stops`;
+    b.onclick = () => restoreSnapshot(t);
+    box.appendChild(b);
+  });
+  $("backupDialog").showModal();
+}
+async function restoreSnapshot(snap) {
+  const stops = snap.days.reduce((a, d) => a + d.stops.length, 0);
+  if (!confirm(`Restore this snapshot (${snap.days.length} days, ${stops} stops)?` +
+    (LIVE ? " This replaces the live trip for everyone." : ""))) return;
+  takeSnapshot();
+  $("backupDialog").close();
+  if (!LIVE) {
+    trip = snap; persistLocal(); toast("Snapshot restored");
+    return;
+  }
+  try {
+    const del = await sb.from("trip_days").delete().eq("trip_id", LIVE_TRIP_ID);
+    if (del.error) throw del.error;
+    await sb.from("trip_trips").update({ title: snap.title }).eq("id", LIVE_TRIP_ID);
+    for (let di = 0; di < snap.days.length; di++) {
+      const day = snap.days[di];
+      const ins = { trip_id: LIVE_TRIP_ID, title: day.title, position: di };
+      if (DATE_SYNC && day.date) ins.date = day.date;
+      const d = await sb.from("trip_days").insert(ins).select().single();
+      if (d.error) throw d.error;
+      if (day.stops.length) {
+        const rows = day.stops.map((s, si) => {
+          const r = { trip_id: LIVE_TRIP_ID, day_id: d.data.id, name: s.name, lat: s.lat, lng: s.lng,
+            links: s.links || [], notes: s.notes || "", added_by: s.addedBy || "", position: si };
+          if (SYNC_META) { r.votes = s.votes || {}; r.visited = !!s.visited; }
+          return r;
+        });
+        const r = await sb.from("trip_stops").insert(rows);
+        if (r.error) throw r.error;
+      }
+    }
+    scheduleRefresh();
+    toast("Snapshot restored for everyone");
+  } catch (e) {
+    console.warn(e);
+    toast("Restore failed: " + (e.message || "error"));
+    scheduleRefresh();
+  }
 }
 function moveStop(day, i, delta) {
   const j = i + delta;
@@ -1133,7 +1361,7 @@ function render() {
   container.innerHTML = "";
   trip.days.forEach((day, di) => {
     const color = dayColor(di);
-    const today = isToday(day.title);
+    const today = isToday(day);
     const isCollapsed = collapsed.has(day.id) && !today;
     const el = document.createElement("div");
     el.className = "day" + (today ? " today" : "");
@@ -1155,12 +1383,27 @@ function render() {
     if (dots) head.appendChild(dots);
     const drive = driveBadge(day, di);
     if (drive) head.appendChild(drive);
+    const wx = weatherChip(day);
+    if (wx) head.appendChild(wx);
     if (day.stops.length >= 2) {
       const spin = document.createElement("button");
       spin.className = "mini"; spin.textContent = "🎲"; spin.title = "Can't decide? Spin!";
       spin.onclick = () => spinDay(day);
       head.appendChild(spin);
     }
+    const dateBtn = document.createElement("button");
+    dateBtn.className = "mini"; dateBtn.textContent = "📅";
+    dateBtn.title = dayDateISO(day) ? "Date: " + dayDateISO(day) : "Set this day's date";
+    dateBtn.onclick = () => promptDayDate(day);
+    head.appendChild(dateBtn);
+    const upBtn = document.createElement("button");
+    upBtn.className = "mini"; upBtn.textContent = "↑"; upBtn.title = "Move day up";
+    upBtn.onclick = () => moveDay(di, -1);
+    head.appendChild(upBtn);
+    const dnBtn = document.createElement("button");
+    dnBtn.className = "mini"; dnBtn.textContent = "↓"; dnBtn.title = "Move day down";
+    dnBtn.onclick = () => moveDay(di, 1);
+    head.appendChild(dnBtn);
     const delBtn = document.createElement("button");
     delBtn.className = "mini"; delBtn.textContent = "✕"; delBtn.title = "Remove day";
     delBtn.onclick = () => {
@@ -1252,6 +1495,7 @@ function render() {
   renderQuest();
   refreshRoutes();
   refreshWiki();
+  refreshWeather();
 }
 
 function renderMap() {
@@ -1357,12 +1601,14 @@ function renderQuest() {
     const r = dayRoute(b.day, b.di);
     const mins = routableDay(b.day, b.di) ? (r ? r.minutes : driveMinutes(b.di)) : 0;
     const driveTxt = mins >= 10 ? `${r ? "" : "≈"}${Math.floor(mins / 60) ? Math.floor(mins / 60) + " H " : ""}${mins % 60 ? mins % 60 + " MIN" : ""} DRIVE` : "";
+    const w = dayWeather(b.day);
+    const subTxt = [w ? `${WMO(w.code)} ${w.max}° / ${w.min}°` : "", driveTxt].filter(Boolean).join("   ·   ");
     out += `<g>
       <line x1="${CX - 260}" y1="${b.y - 33}" x2="${CX - 170}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
       <line x1="${CX + 170}" y1="${b.y - 33}" x2="${CX + 260}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
       <circle cx="${CX - 158}" cy="${b.y - 33}" r="3.5" fill="${dayColor(b.di)}"/>
       <text x="${CX}" y="${b.y - 28}" text-anchor="middle" font-size="14.5" font-style="italic" fill="${INK}" ${serif}>${esc(b.day.title.length > 42 ? b.day.title.slice(0, 41) + "…" : b.day.title)}</text>
-      ${driveTxt ? `<text x="${CX}" y="${b.y - 11}" text-anchor="middle" font-size="8.5" fill="${MUTED}" letter-spacing="2">${driveTxt}</text>` : ""}</g>`;
+      ${subTxt ? `<text x="${CX}" y="${b.y - 11}" text-anchor="middle" font-size="8.5" fill="${MUTED}" letter-spacing="2">${subTxt}</text>` : ""}</g>`;
   });
 
   nodes.forEach((n, i) => {
@@ -1625,10 +1871,18 @@ $("btnGoLive").onclick = goLive;
 
 /* ---------- misc wiring ---------- */
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-function toast(msg) {
+function toast(msg, action) {
   const t = $("toast");
-  t.textContent = msg; t.classList.add("show");
-  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500);
+  t.textContent = msg;
+  t.classList.toggle("actionable", !!action);
+  if (action) {
+    const b = document.createElement("button");
+    b.className = "toast-btn"; b.textContent = action.label;
+    b.onclick = () => { clearTimeout(t._h); t.classList.remove("show"); action.fn(); };
+    t.appendChild(b);
+  }
+  t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), action ? 7000 : 3500);
 }
 
 /* ---------- UI skins ---------- */
@@ -1666,8 +1920,10 @@ document.addEventListener("click", (ev) => {
   if (!ev.target.closest("#moreMenu") && ev.target.id !== "btnMore")
     document.body.classList.remove("more-open");
 });
-["btnExport", "btnImport", "btnPrint"].forEach(id =>
+["btnExport", "btnImport", "btnPrint", "btnBackups"].forEach(id =>
   $(id).addEventListener("click", () => document.body.classList.remove("more-open")));
+$("btnBackups").onclick = openBackups;
+$("btnBackupClose").onclick = () => $("backupDialog").close();
 
 function setMtab(tab) {
   document.body.classList.remove("mtab-plan", "mtab-map", "mtab-journey");
@@ -1740,6 +1996,8 @@ async function boot() {
     localStorage.setItem(STORE_KEY, JSON.stringify(trip));
   }
   render();
+  takeSnapshot();
+  setInterval(takeSnapshot, 10 * 60 * 1000);
 }
 boot();
 </script>
