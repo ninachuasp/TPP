@@ -308,20 +308,20 @@ function seedTrip() {
   return {
     title: "Sapporo Road Trip · 12–24 Oct",
     days: [
-      { id: uid(), title: "Sun 12 Oct — Sapporo · crew A", stops: [
+      { id: uid(), title: "Sun 12 Oct — Sapporo · Derek & Sean", stops: [
         mk("Nijo Market", 43.0570, 141.3612, [], "Land + morning kaisendon run"),
         mk("Odori Park & TV Tower", 43.0606, 141.3472, [], "Walk it off downtown"),
         mk("Sapporo Beer Garden", 43.0713, 141.3697, [], "Genghis Khan BBQ dinner"),
         mk("Susukino", 43.0553, 141.3536, [], "Nightcap / ramen alley"),
       ]},
-      { id: uid(), title: "Mon 13 Oct — Sapporo & Jozankei · crew A", stops: [
+      { id: uid(), title: "Mon 13 Oct — Sapporo & Jozankei · Derek & Sean", stops: [
         mk("Hokkaido Shrine", 43.0545, 141.3079, [], "Maruyama Park autumn stroll"),
         mk("Shiroi Koibito Park", 43.0879, 141.2717),
         mk("Jozankei Onsen", 42.9679, 141.1678, [], "Peak koyo season — day-use onsen, ~50 min drive"),
         mk("Mt. Moiwa Ropeway", 43.0333, 141.3222, [], "Night view on the way back"),
       ]},
       { id: uid(), title: "Tue 14 Oct — Pickup → Noboribetsu · all 4", stops: [
-        mk("New Chitose Airport", 42.7752, 141.6923, [], "Collect crew B + rental car"),
+        mk("New Chitose Airport", 42.7752, 141.6923, [], "Collect Nina & Seth + rental car"),
         mk("Lake Shikotsu", 42.7600, 141.3400, [], "Lakeside foliage stop, 30 min from airport"),
         mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [], "Check into onsen ryokan, evening Hell Valley walk"),
       ]},
@@ -350,11 +350,11 @@ function seedTrip() {
         mk("Sounkyo Gorge", 43.7280, 142.9480, [], "Ginga & Ryusei falls, ropeway koyo — or swap for Asahiyama Zoo"),
         mk("Asahiyama Zoo", 43.7679, 142.4808, [], "Alternative to Sounkyo; then ~2h drive to Sapporo, farewell jingisukan dinner"),
       ]},
-      { id: uid(), title: "Mon 20 Oct — Farewell · crew A departs", stops: [
+      { id: uid(), title: "Mon 20 Oct — Farewell · all 4, Derek & Sean fly out", stops: [
         mk("Tanukikoji Shopping Street", 43.0574, 141.3517, [], "Souvenir run"),
-        mk("New Chitose Airport", 42.7752, 141.6923, [], "Drop car + crew A flies out"),
+        mk("New Chitose Airport", 42.7752, 141.6923, [], "Drop car + Derek & Sean fly out"),
       ]},
-      { id: uid(), title: "Tue 21–24 Oct — Crew B solo ideas", stops: [
+      { id: uid(), title: "Tue 21–24 Oct — Nina & Seth solo ideas", stops: [
         mk("Moerenuma Park", 43.1226, 141.4276, [], "Noguchi-designed park, rent bikes"),
         mk("Sapporo Beer Museum", 43.0717, 141.3690),
         mk("Okurayama Ski Jump", 43.0480, 141.2880, [], "City panorama from the jump tower"),
@@ -485,17 +485,22 @@ function driveBadge(day) {
   return el;
 }
 
-/* ---------- crew presence (derived from day titles for now) ---------- */
+/* ---------- crew presence (derived from day titles) ----------
+ * Crew A = Derek & Sean (12–20 Oct, red) · Crew B = Nina & Seth (14–24 Oct, blue) */
+const CREW_A = "#b0483f", CREW_B = "#3f5fa8";
 function crewDots(title) {
   const t = title.toLowerCase();
+  const hasA = /crew a|derek|sean\b/.test(t);
+  const hasB = /crew b|nina|seth\b/.test(t);
   let dots = null;
-  if (/all 4|all4|everyone/.test(t)) dots = ["#b0483f", "#b0483f", "#3f5fa8", "#3f5fa8"];
-  else if (/crew a/.test(t)) dots = ["#b0483f", "#b0483f"];
-  else if (/crew b/.test(t)) dots = ["#3f5fa8", "#3f5fa8"];
+  if (/all 4|all4|everyone/.test(t) || (hasA && hasB)) dots = [CREW_A, CREW_A, CREW_B, CREW_B];
+  else if (hasA) dots = [CREW_A, CREW_A];
+  else if (hasB) dots = [CREW_B, CREW_B];
   if (!dots) return null;
   const s = document.createElement("span");
   s.className = "crew-dots";
-  s.title = "Who's on the road this day";
+  s.title = dots.length === 4 ? "Derek, Sean, Nina & Seth" :
+    dots[0] === CREW_A ? "Derek & Sean" : "Nina & Seth";
   dots.forEach(c => { const i = document.createElement("i"); i.style.background = c; s.appendChild(i); });
   return s;
 }
