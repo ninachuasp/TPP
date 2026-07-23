@@ -133,6 +133,40 @@
   }
   .add-cta:hover { filter: brightness(1.04); }
   .add-cta #addCtaPin { display: inline-flex; align-items: center; }
+
+  /* ---- welcome cover ---- */
+  #cover {
+    position: fixed; inset: 0; z-index: 5000; display: none;
+    align-items: center; justify-content: center; padding: 26px;
+    background:
+      radial-gradient(520px 340px at 12% 8%, color-mix(in srgb, var(--pop) 28%, transparent), transparent 70%),
+      linear-gradient(158deg, var(--nav-bg), var(--nav-bg2));
+  }
+  #cover.show { display: flex; }
+  #cover.hiding { animation: coverOut .42s ease forwards; }
+  @keyframes coverOut { to { opacity: 0; transform: scale(1.03); visibility: hidden; } }
+  .cover-inner { width: 100%; max-width: 372px; display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center; }
+  .cover-logo { width: 176px; height: auto; }
+  .cover-ticket {
+    background: var(--panel); color: var(--ink); width: 100%;
+    border-radius: 20px; padding: 26px 24px 24px;
+    box-shadow: 0 34px 70px -34px rgba(0,0,0,.6);
+  }
+  .cover-kicker { font-size: .64rem; letter-spacing: .24em; font-weight: 800; color: var(--pop); }
+  .cover-title {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 1.7rem; font-weight: 800; line-height: 1.15; margin-top: 7px;
+  }
+  .cover-meta { color: var(--muted); font-size: .9rem; margin-top: 9px; }
+  .cover-crew { display: flex; justify-content: center; margin-top: 15px; min-height: 4px; }
+  .cover-crew .cav {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 1rem;
+    border: 2px solid var(--panel); margin-left: -6px;
+  }
+  .cover-crew .cav:first-child { margin-left: 0; }
+  .cover-enter { margin-top: 20px; width: 100%; padding: 13px; font-size: 1rem; border-radius: 13px; }
+  .cover-foot { color: rgba(255,255,255,.82); font-size: .82rem; letter-spacing: .02em; }
   .hint { font-size: .72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
   .geo-results { margin-top: 6px; }
   .geo-results button {
@@ -547,6 +581,28 @@
     <filter id="rough2"><feTurbulence type="fractalNoise" baseFrequency="0.009" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3.6"/></filter>
   </defs>
 </svg>
+
+<div id="cover">
+  <div class="cover-inner">
+    <svg class="cover-logo" viewBox="0 0 244 84" role="img" aria-label="Plonk!">
+      <text x="2" y="60" font-family="ui-rounded, 'Arial Rounded MT Bold', 'Nunito', system-ui" font-size="60" font-weight="800" letter-spacing="-1" fill="#fff">Plonk</text>
+      <g transform="rotate(9 208 30)">
+        <path d="M208 5 C197.5 5 190 12.8 190 21.5 C190 32 208 46 208 46 C208 46 226 32 226 21.5 C226 12.8 218.5 5 208 5 Z" fill="var(--pop)"/>
+        <circle cx="201.5" cy="20" r="4.6" fill="#fff"/><circle cx="214.5" cy="20" r="4.6" fill="#fff"/>
+        <circle cx="202.8" cy="20.6" r="2.1" fill="#12205f"/><circle cx="215.8" cy="20.6" r="2.1" fill="#12205f"/>
+      </g>
+      <circle cx="211" cy="57" r="5.5" fill="var(--pop)"/>
+    </svg>
+    <div class="cover-ticket">
+      <div class="cover-kicker">YOUR TRIP</div>
+      <div class="cover-title" id="coverTitle">Your trip</div>
+      <div class="cover-meta" id="coverDates"></div>
+      <div class="cover-crew" id="coverCrew"></div>
+      <button id="btnEnter" class="primary cover-enter">Start planning →</button>
+    </div>
+    <div class="cover-foot">friends plonk, we plan</div>
+  </div>
+</div>
 
 <header>
   <span class="nav-deco" aria-hidden="true" style="z-index:0">
@@ -2550,6 +2606,32 @@ $("profileForm").onsubmit = () => {
   else render();
 };
 
+/* ---------- welcome cover ---------- */
+function renderCover() {
+  $("coverTitle").textContent = trip.title || "Your trip";
+  const dated = trip.days.map(d => d.date).filter(Boolean).sort();
+  const dc = trip.days.length;
+  let meta = dc + " day" + (dc !== 1 ? "s" : "");
+  if (dated.length) meta = fmtDate(dated[0]) + " – " + fmtDate(dated[dated.length - 1]) + "  ·  " + meta;
+  $("coverDates").textContent = meta;
+  const crew = [...new Set(trip.days.flatMap(d => d.stops.map(s => s.addedBy)).filter(Boolean))]
+    .filter(n => n && n !== "starter").slice(0, 6);
+  $("coverCrew").innerHTML = crew.map(n => `<span class="cav" title="${esc(n)}">${avatar(n)}</span>`).join("");
+}
+function enterApp() {
+  const c = $("cover");
+  c.classList.add("hiding");
+  setTimeout(() => c.classList.remove("show", "hiding"), 430);
+  sessionStorage.setItem("tpp.entered", "1");
+  if (map) setTimeout(() => map.invalidateSize(), 200);
+}
+function showCoverIfNew() {
+  if (sessionStorage.getItem("tpp.entered")) return;
+  renderCover();
+  $("cover").classList.add("show");
+}
+$("btnEnter").onclick = enterApp;
+
 /* ---------- boot ---------- */
 async function boot() {
   if (!userName) {
@@ -2595,6 +2677,7 @@ async function boot() {
     localStorage.setItem(STORE_KEY, JSON.stringify(trip));
   }
   render();
+  showCoverIfNew();
   takeSnapshot();
   setInterval(takeSnapshot, 10 * 60 * 1000);
 }
