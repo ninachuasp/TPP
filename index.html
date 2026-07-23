@@ -124,23 +124,49 @@
   }
   #map { flex: 1; min-width: 0; }
 
-  .add-box {
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; padding: 13px; margin-bottom: 14px; position: relative;
-    box-shadow: 0 1px 2px rgba(60,45,20,.04), 0 12px 32px -22px rgba(60,45,20,.35);
+  .add-cta {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; margin-bottom: 14px; padding: 12px 16px;
+    background: var(--pop); color: var(--on-accent); border: none;
+    border-radius: 14px; cursor: pointer; font-size: .95rem; font-weight: 700;
+    box-shadow: 0 5px 18px -7px color-mix(in srgb, var(--pop) 70%, #000);
   }
-  .add-box h2 {
+  .add-cta:hover { filter: brightness(1.04); }
+  .add-cta #addCtaPin { display: inline-flex; align-items: center; }
+
+  /* ---- welcome cover ---- */
+  #cover {
+    position: fixed; inset: 0; z-index: 5000; display: none;
+    align-items: center; justify-content: center; padding: 26px;
+    background:
+      radial-gradient(520px 340px at 12% 8%, color-mix(in srgb, var(--pop) 28%, transparent), transparent 70%),
+      linear-gradient(158deg, var(--nav-bg), var(--nav-bg2));
+  }
+  #cover.show { display: flex; }
+  #cover.hiding { animation: coverOut .42s ease forwards; }
+  @keyframes coverOut { to { opacity: 0; transform: scale(1.03); visibility: hidden; } }
+  .cover-inner { width: 100%; max-width: 372px; display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center; }
+  .cover-logo { width: 176px; height: auto; }
+  .cover-ticket {
+    background: var(--panel); color: var(--ink); width: 100%;
+    border-radius: 20px; padding: 26px 24px 24px;
+    box-shadow: 0 34px 70px -34px rgba(0,0,0,.6);
+  }
+  .cover-kicker { font-size: .64rem; letter-spacing: .24em; font-weight: 800; color: var(--pop); }
+  .cover-title {
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-    font-size: 1rem; font-weight: 700; margin-bottom: 6px; color: var(--ink);
-    display: flex; align-items: center; gap: 6px;
+    font-size: 1.7rem; font-weight: 800; line-height: 1.15; margin-top: 7px;
   }
-  .add-box .row { display: flex; gap: 6px; margin-bottom: 6px; }
-  .add-box input, .add-box select, .add-box textarea {
-    font: inherit; font-size: .85rem; flex: 1; min-width: 0;
-    border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px;
-    background: var(--panel); color: var(--ink);
+  .cover-meta { color: var(--muted); font-size: .9rem; margin-top: 9px; }
+  .cover-crew { display: flex; justify-content: center; margin-top: 15px; min-height: 4px; }
+  .cover-crew .cav {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 1rem;
+    border: 2px solid var(--panel); margin-left: -6px;
   }
-  .add-box input:focus, .add-box textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .cover-crew .cav:first-child { margin-left: 0; }
+  .cover-enter { margin-top: 20px; width: 100%; padding: 13px; font-size: 1rem; border-radius: 13px; }
+  .cover-foot { color: rgba(255,255,255,.82); font-size: .82rem; letter-spacing: .02em; }
   .hint { font-size: .72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
   .geo-results { margin-top: 6px; }
   .geo-results button {
@@ -556,6 +582,28 @@
   </defs>
 </svg>
 
+<div id="cover">
+  <div class="cover-inner">
+    <svg class="cover-logo" viewBox="0 0 244 84" role="img" aria-label="Plonk!">
+      <text x="2" y="60" font-family="ui-rounded, 'Arial Rounded MT Bold', 'Nunito', system-ui" font-size="60" font-weight="800" letter-spacing="-1" fill="#fff">Plonk</text>
+      <g transform="rotate(9 208 30)">
+        <path d="M208 5 C197.5 5 190 12.8 190 21.5 C190 32 208 46 208 46 C208 46 226 32 226 21.5 C226 12.8 218.5 5 208 5 Z" fill="var(--pop)"/>
+        <circle cx="201.5" cy="20" r="4.6" fill="#fff"/><circle cx="214.5" cy="20" r="4.6" fill="#fff"/>
+        <circle cx="202.8" cy="20.6" r="2.1" fill="#12205f"/><circle cx="215.8" cy="20.6" r="2.1" fill="#12205f"/>
+      </g>
+      <circle cx="211" cy="57" r="5.5" fill="var(--pop)"/>
+    </svg>
+    <div class="cover-ticket">
+      <div class="cover-kicker">YOUR TRIP</div>
+      <div class="cover-title" id="coverTitle">Your trip</div>
+      <div class="cover-meta" id="coverDates"></div>
+      <div class="cover-crew" id="coverCrew"></div>
+      <button id="btnEnter" class="primary cover-enter">Start planning →</button>
+    </div>
+    <div class="cover-foot">friends plonk, we plan</div>
+  </div>
+</div>
+
 <header>
   <span class="nav-deco" aria-hidden="true" style="z-index:0">
     <svg class="nav-pin" viewBox="0 0 40 64"><g transform="rotate(14 20 24)"><path d="M20 2C11 2 4 9 4 17c0 10 16 24 16 24s16-14 16-24C36 9 29 2 20 2Z"/><circle cx="14.5" cy="15.5" r="4"/><circle cx="25.5" cy="15.5" r="4"/></g><circle cx="23" cy="57" r="5"/></svg>
@@ -601,24 +649,7 @@
 
 <main>
   <div id="sidebar">
-    <div class="add-box">
-      <svg class="doodle-frame" preserveAspectRatio="none" viewBox="0 0 300 100" filter="url(#rough2)"><rect x="2" y="2" width="296" height="96" rx="12" vector-effect="non-scaling-stroke"/></svg>
-      <h2 id="addHeading">Plonk a pin</h2>
-      <div class="row">
-        <input id="addInput" placeholder="Paste a Google Maps link, coordinates, or type a place name…">
-        <button id="btnAdd" class="primary">Plonk!</button>
-      </div>
-      <div class="row">
-        <select id="addDay"></select>
-      </div>
-      <div class="geo-results" id="geoResults"></div>
-      <div class="hint">
-        Works with: full Google Maps URLs (containing coordinates), <code>lat, lng</code> pairs,
-        or a place-name search. Short links (<code>maps.app.goo.gl/…</code>) don't carry coordinates —
-        paste one and tap <b>Open in Maps</b>, then copy the full URL from the address bar and paste
-        that here. After adding, click ✎ on a stop to attach Instagram / TikTok / booking links and notes.
-      </div>
-    </div>
+    <button id="btnOpenAdd" class="add-cta"><span id="addCtaPin"></span><span>Add a place</span></button>
     <div id="days"></div>
     <button id="btnAddDay" style="width:100%">＋ Add a day</button>
     <div class="brand-footer">
@@ -676,6 +707,24 @@
       <button type="button" id="btnDeleteStop" style="margin-right:auto;color:#b91c1c">Delete stop</button>
       <button type="button" id="btnCancelEdit">Cancel</button>
       <button type="submit" class="primary" id="btnSaveEdit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="addDialog">
+  <h3>Add a place</h3>
+  <form id="addForm">
+    <label>Paste a link, coordinates, or search a place</label>
+    <input id="addInput" placeholder="Google Maps link · 43.06, 141.35 · or a place name…" autocomplete="off">
+    <div class="geo-results" id="geoResults"></div>
+    <label>What kind of place? <span style="font-weight:400;color:var(--muted)">(sets the map pin)</span></label>
+    <div id="addCat" class="catgrid"></div>
+    <label>Which day?</label>
+    <select id="addDay"></select>
+    <p class="hint" style="margin-top:9px">Coordinates come from a Google Maps link or the search. Once it's added, tap the stop to attach Instagram / TikTok / booking links &amp; photos — they show up as chips on the stop and in its map pin.</p>
+    <div class="actions">
+      <button type="button" id="btnAddCancel">Cancel</button>
+      <button type="submit" class="primary" id="btnAddSubmit">Add place</button>
     </div>
   </form>
 </dialog>
@@ -1690,6 +1739,28 @@ function linkLabel(url) {
 }
 
 /* ---------- add flow ---------- */
+/* the category picked in the Add dialog, as a links-array entry (or none) */
+function addCatLinks() { const k = $("addCat").dataset.pick; return k ? [{ type: "category", key: k }] : []; }
+let shortLinkResolverDown = false;  // set true once we learn the resolver isn't deployed
+
+function openAdd() {
+  $("addInput").value = "";
+  $("geoResults").innerHTML = "";
+  const cg = $("addCat"); cg.innerHTML = ""; cg.dataset.pick = "";
+  Object.entries(CATEGORIES).forEach(([key, c]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "cat-choice";
+    b.innerHTML = `${catSvg(key)}<small>${c.label}</small>`;
+    b.onclick = () => { cg.querySelectorAll(".cat-choice").forEach(x => x.classList.remove("on")); b.classList.add("on"); cg.dataset.pick = key; };
+    cg.appendChild(b);
+  });
+  const sel = $("addDay"), prev = sel.value;
+  sel.innerHTML = trip.days.map(d => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  sel.value = [...sel.options].some(o => o.value === prev) ? prev : (trip.days[0] && trip.days[0].id) || "";
+  $("addDialog").showModal();
+  setTimeout(() => $("addInput").focus(), 40);
+}
+
 async function handleAdd() {
   const input = $("addInput");
   const text = input.value.trim();
@@ -1698,6 +1769,29 @@ async function handleAdd() {
 
   if (/maps\.app\.goo\.gl|goo\.gl\/maps/.test(text)) {
     const short = text.match(/https?:\/\/\S*goo\.gl\/\S+/)?.[0] || text;
+    // Try the server-side resolver first (a static page can't follow the
+    // redirect itself); fall back to the manual open-and-copy flow.
+    if (!shortLinkResolverDown) {
+      toast("Expanding that short link…");
+      try {
+        const r = await fetch(SB_URL + "/functions/v1/resolve-maps", {
+          method: "POST",
+          headers: { "content-type": "application/json", apikey: SB_KEY, authorization: "Bearer " + SB_KEY },
+          body: JSON.stringify({ url: short }),
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          if (d && d.lat && d.lng) {
+            addStopM(dayId, { name: d.name || nameFromGoogleMapsUrl(d.url) || "Pinned place", lat: d.lat, lng: d.lng, links: [d.url || short, ...addCatLinks()] });
+            input.value = ""; $("addDialog").close();
+            return;
+          }
+        } else if (r.status === 404 || r.status === 401) {
+          shortLinkResolverDown = true;  // not deployed / unauthorized — stop trying this session
+        }
+      } catch (e) { /* offline or blocked — fall through to manual */ }
+    }
     toast("Short links don't carry coordinates — tap to open it, then copy the full URL from the address bar and paste it back here.", {
       label: "Open in Maps ↗",
       fn: () => window.open(short, "_blank", "noopener"),
@@ -1717,8 +1811,9 @@ async function handleAdd() {
     await geocodeSearch(text, dayId);
     return;
   }
-  addStopM(dayId, { name, ...coords, links });
+  addStopM(dayId, { name, ...coords, links: [...links, ...addCatLinks()] });
   input.value = "";
+  $("addDialog").close();
 }
 
 async function geocodeSearch(query, dayId) {
@@ -1739,9 +1834,10 @@ async function geocodeSearch(query, dayId) {
       const b = document.createElement("button");
       b.textContent = "📍 " + r.display_name;
       b.onclick = () => {
-        addStopM(dayId, { name: query, lat: +r.lat, lng: +r.lon, links: [] });
+        addStopM(dayId, { name: query, lat: +r.lat, lng: +r.lon, links: addCatLinks() });
         $("addInput").value = "";
         box.innerHTML = "";
+        $("addDialog").close();
       };
       box.appendChild(b);
     });
@@ -2501,8 +2597,10 @@ function onMqChange() { if (mobileMq.matches) setMtab("plan"); }
 mobileMq.addEventListener("change", onMqChange);
 
 $("tripTitle").onchange = (e) => setTripTitle(e.target.value);
-$("btnAdd").onclick = handleAdd;
-$("addInput").onkeydown = (e) => { if (e.key === "Enter") handleAdd(); };
+$("btnOpenAdd").onclick = openAdd;
+$("btnAddCancel").onclick = () => $("addDialog").close();
+$("addForm").onsubmit = (e) => { e.preventDefault(); handleAdd(); };
+$("addInput").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } };
 $("btnAddDay").onclick = addDayM;
 $("whoName").onclick = openProfile;
 $("btnStayCancel").onclick = () => $("stayDialog").close();
@@ -2532,6 +2630,32 @@ $("profileForm").onsubmit = () => {
   else render();
 };
 
+/* ---------- welcome cover ---------- */
+function renderCover() {
+  $("coverTitle").textContent = trip.title || "Your trip";
+  const dated = trip.days.map(d => d.date).filter(Boolean).sort();
+  const dc = trip.days.length;
+  let meta = dc + " day" + (dc !== 1 ? "s" : "");
+  if (dated.length) meta = fmtDate(dated[0]) + " – " + fmtDate(dated[dated.length - 1]) + "  ·  " + meta;
+  $("coverDates").textContent = meta;
+  const crew = [...new Set(trip.days.flatMap(d => d.stops.map(s => s.addedBy)).filter(Boolean))]
+    .filter(n => n && n !== "starter").slice(0, 6);
+  $("coverCrew").innerHTML = crew.map(n => `<span class="cav" title="${esc(n)}">${avatar(n)}</span>`).join("");
+}
+function enterApp() {
+  const c = $("cover");
+  c.classList.add("hiding");
+  setTimeout(() => c.classList.remove("show", "hiding"), 430);
+  sessionStorage.setItem("tpp.entered", "1");
+  if (map) setTimeout(() => map.invalidateSize(), 200);
+}
+function showCoverIfNew() {
+  if (sessionStorage.getItem("tpp.entered")) return;
+  renderCover();
+  $("cover").classList.add("show");
+}
+$("btnEnter").onclick = enterApp;
+
 /* ---------- boot ---------- */
 async function boot() {
   if (!userName) {
@@ -2539,8 +2663,7 @@ async function boot() {
     userName = (n || "").trim();
     if (userName) localStorage.setItem(NAME_KEY, userName);
   }
-  $("addHeading").innerHTML = pinMark() + " Plonk a pin " + doodle("bang");
-  $("addHeading").insertAdjacentHTML("afterend", underline());
+  $("addCtaPin").innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 22s7-6.6 7-12A7 7 0 0 0 5 10c0 5.4 7 12 7 12Z"/><circle cx="12" cy="10" r="2.6" fill="var(--pop)"/></svg>`;
   $("footerMark").innerHTML = pinMark();
   $("mapMark").innerHTML = pinMark();
   map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
@@ -2578,6 +2701,7 @@ async function boot() {
     localStorage.setItem(STORE_KEY, JSON.stringify(trip));
   }
   render();
+  showCoverIfNew();
   takeSnapshot();
   setInterval(takeSnapshot, 10 * 60 * 1000);
 }
