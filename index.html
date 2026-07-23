@@ -124,23 +124,15 @@
   }
   #map { flex: 1; min-width: 0; }
 
-  .add-box {
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; padding: 13px; margin-bottom: 14px; position: relative;
-    box-shadow: 0 1px 2px rgba(60,45,20,.04), 0 12px 32px -22px rgba(60,45,20,.35);
+  .add-cta {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; margin-bottom: 14px; padding: 12px 16px;
+    background: var(--pop); color: var(--on-accent); border: none;
+    border-radius: 14px; cursor: pointer; font-size: .95rem; font-weight: 700;
+    box-shadow: 0 5px 18px -7px color-mix(in srgb, var(--pop) 70%, #000);
   }
-  .add-box h2 {
-    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-    font-size: 1rem; font-weight: 700; margin-bottom: 6px; color: var(--ink);
-    display: flex; align-items: center; gap: 6px;
-  }
-  .add-box .row { display: flex; gap: 6px; margin-bottom: 6px; }
-  .add-box input, .add-box select, .add-box textarea {
-    font: inherit; font-size: .85rem; flex: 1; min-width: 0;
-    border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px;
-    background: var(--panel); color: var(--ink);
-  }
-  .add-box input:focus, .add-box textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .add-cta:hover { filter: brightness(1.04); }
+  .add-cta #addCtaPin { display: inline-flex; align-items: center; }
   .hint { font-size: .72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
   .geo-results { margin-top: 6px; }
   .geo-results button {
@@ -601,24 +593,7 @@
 
 <main>
   <div id="sidebar">
-    <div class="add-box">
-      <svg class="doodle-frame" preserveAspectRatio="none" viewBox="0 0 300 100" filter="url(#rough2)"><rect x="2" y="2" width="296" height="96" rx="12" vector-effect="non-scaling-stroke"/></svg>
-      <h2 id="addHeading">Plonk a pin</h2>
-      <div class="row">
-        <input id="addInput" placeholder="Paste a Google Maps link, coordinates, or type a place name…">
-        <button id="btnAdd" class="primary">Plonk!</button>
-      </div>
-      <div class="row">
-        <select id="addDay"></select>
-      </div>
-      <div class="geo-results" id="geoResults"></div>
-      <div class="hint">
-        Works with: full Google Maps URLs (containing coordinates), <code>lat, lng</code> pairs,
-        or a place-name search. Short links (<code>maps.app.goo.gl/…</code>) don't carry coordinates —
-        paste one and tap <b>Open in Maps</b>, then copy the full URL from the address bar and paste
-        that here. After adding, click ✎ on a stop to attach Instagram / TikTok / booking links and notes.
-      </div>
-    </div>
+    <button id="btnOpenAdd" class="add-cta"><span id="addCtaPin"></span><span>Add a place</span></button>
     <div id="days"></div>
     <button id="btnAddDay" style="width:100%">＋ Add a day</button>
     <div class="brand-footer">
@@ -676,6 +651,24 @@
       <button type="button" id="btnDeleteStop" style="margin-right:auto;color:#b91c1c">Delete stop</button>
       <button type="button" id="btnCancelEdit">Cancel</button>
       <button type="submit" class="primary" id="btnSaveEdit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="addDialog">
+  <h3>Add a place</h3>
+  <form id="addForm">
+    <label>Paste a link, coordinates, or search a place</label>
+    <input id="addInput" placeholder="Google Maps link · 43.06, 141.35 · or a place name…" autocomplete="off">
+    <div class="geo-results" id="geoResults"></div>
+    <label>What kind of place? <span style="font-weight:400;color:var(--muted)">(sets the map pin)</span></label>
+    <div id="addCat" class="catgrid"></div>
+    <label>Which day?</label>
+    <select id="addDay"></select>
+    <p class="hint" style="margin-top:9px">Coordinates come from a Google Maps link or the search. Once it's added, tap the stop to attach Instagram / TikTok / booking links &amp; photos — they show up as chips on the stop and in its map pin.</p>
+    <div class="actions">
+      <button type="button" id="btnAddCancel">Cancel</button>
+      <button type="submit" class="primary" id="btnAddSubmit">Add place</button>
     </div>
   </form>
 </dialog>
@@ -1690,6 +1683,27 @@ function linkLabel(url) {
 }
 
 /* ---------- add flow ---------- */
+/* the category picked in the Add dialog, as a links-array entry (or none) */
+function addCatLinks() { const k = $("addCat").dataset.pick; return k ? [{ type: "category", key: k }] : []; }
+
+function openAdd() {
+  $("addInput").value = "";
+  $("geoResults").innerHTML = "";
+  const cg = $("addCat"); cg.innerHTML = ""; cg.dataset.pick = "";
+  Object.entries(CATEGORIES).forEach(([key, c]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "cat-choice";
+    b.innerHTML = `${catSvg(key)}<small>${c.label}</small>`;
+    b.onclick = () => { cg.querySelectorAll(".cat-choice").forEach(x => x.classList.remove("on")); b.classList.add("on"); cg.dataset.pick = key; };
+    cg.appendChild(b);
+  });
+  const sel = $("addDay"), prev = sel.value;
+  sel.innerHTML = trip.days.map(d => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  sel.value = [...sel.options].some(o => o.value === prev) ? prev : (trip.days[0] && trip.days[0].id) || "";
+  $("addDialog").showModal();
+  setTimeout(() => $("addInput").focus(), 40);
+}
+
 async function handleAdd() {
   const input = $("addInput");
   const text = input.value.trim();
@@ -1717,8 +1731,9 @@ async function handleAdd() {
     await geocodeSearch(text, dayId);
     return;
   }
-  addStopM(dayId, { name, ...coords, links });
+  addStopM(dayId, { name, ...coords, links: [...links, ...addCatLinks()] });
   input.value = "";
+  $("addDialog").close();
 }
 
 async function geocodeSearch(query, dayId) {
@@ -1739,9 +1754,10 @@ async function geocodeSearch(query, dayId) {
       const b = document.createElement("button");
       b.textContent = "📍 " + r.display_name;
       b.onclick = () => {
-        addStopM(dayId, { name: query, lat: +r.lat, lng: +r.lon, links: [] });
+        addStopM(dayId, { name: query, lat: +r.lat, lng: +r.lon, links: addCatLinks() });
         $("addInput").value = "";
         box.innerHTML = "";
+        $("addDialog").close();
       };
       box.appendChild(b);
     });
@@ -2501,8 +2517,10 @@ function onMqChange() { if (mobileMq.matches) setMtab("plan"); }
 mobileMq.addEventListener("change", onMqChange);
 
 $("tripTitle").onchange = (e) => setTripTitle(e.target.value);
-$("btnAdd").onclick = handleAdd;
-$("addInput").onkeydown = (e) => { if (e.key === "Enter") handleAdd(); };
+$("btnOpenAdd").onclick = openAdd;
+$("btnAddCancel").onclick = () => $("addDialog").close();
+$("addForm").onsubmit = (e) => { e.preventDefault(); handleAdd(); };
+$("addInput").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } };
 $("btnAddDay").onclick = addDayM;
 $("whoName").onclick = openProfile;
 $("btnStayCancel").onclick = () => $("stayDialog").close();
@@ -2539,8 +2557,7 @@ async function boot() {
     userName = (n || "").trim();
     if (userName) localStorage.setItem(NAME_KEY, userName);
   }
-  $("addHeading").innerHTML = pinMark() + " Plonk a pin " + doodle("bang");
-  $("addHeading").insertAdjacentHTML("afterend", underline());
+  $("addCtaPin").innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 22s7-6.6 7-12A7 7 0 0 0 5 10c0 5.4 7 12 7 12Z"/><circle cx="12" cy="10" r="2.6" fill="var(--pop)"/></svg>`;
   $("footerMark").innerHTML = pinMark();
   $("mapMark").innerHTML = pinMark();
   map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
