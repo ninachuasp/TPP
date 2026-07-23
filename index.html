@@ -614,9 +614,9 @@
       <div class="geo-results" id="geoResults"></div>
       <div class="hint">
         Works with: full Google Maps URLs (containing coordinates), <code>lat, lng</code> pairs,
-        or a place-name search. Short links (<code>maps.app.goo.gl/…</code>) need to be opened in a
-        browser first — copy the full URL from the address bar and paste it here. After adding,
-        click ✎ on a stop to attach Instagram / TikTok / booking links and notes.
+        or a place-name search. Short links (<code>maps.app.goo.gl/…</code>) don't carry coordinates —
+        paste one and tap <b>Open in Maps</b>, then copy the full URL from the address bar and paste
+        that here. After adding, click ✎ on a stop to attach Instagram / TikTok / booking links and notes.
       </div>
     </div>
     <div id="days"></div>
@@ -1697,7 +1697,11 @@ async function handleAdd() {
   if (!text) return;
 
   if (/maps\.app\.goo\.gl|goo\.gl\/maps/.test(text)) {
-    toast("That's a shortened link — open it in a browser and paste the full URL from the address bar");
+    const short = text.match(/https?:\/\/\S*goo\.gl\/\S+/)?.[0] || text;
+    toast("Short links don't carry coordinates — tap to open it, then copy the full URL from the address bar and paste it back here.", {
+      label: "Open in Maps ↗",
+      fn: () => window.open(short, "_blank", "noopener"),
+    });
     return;
   }
 
