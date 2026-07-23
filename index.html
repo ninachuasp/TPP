@@ -220,14 +220,22 @@
   }
   .day-head .mini:hover { opacity: 1; color: var(--accent); }
   .stop {
-    display: flex; gap: 9px; padding: 10px 12px;
+    display: flex; gap: 11px; padding: 11px 12px;
     border-bottom: 1px dashed var(--line); align-items: flex-start;
   }
   .stop:last-child { border-bottom: none; }
-  .stop .num {
-    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
-    color: #fff; font-size: .7rem; font-weight: 700;
-    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  .stop-thumb {
+    position: relative; width: 58px; height: 58px; flex-shrink: 0; cursor: pointer;
+    border-radius: 13px; overflow: hidden; display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--dc, var(--accent)) 15%, var(--panel));
+  }
+  .stop-thumb .thumb-ico { color: var(--dc, var(--accent)); display: inline-flex; }
+  .stop-thumb .thumb-ico .picon { width: 26px; height: 26px; }
+  .stop-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .stop-thumb .stop-seq {
+    position: absolute; left: 0; top: 0; min-width: 18px; height: 17px; padding: 0 4px;
+    background: var(--dc, var(--accent)); color: #fff; font-size: .62rem; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; border-radius: 0 0 9px 0;
   }
   .stop .body { flex: 1; min-width: 0; }
   .stop .name {
@@ -273,8 +281,9 @@
   .cat-choice.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
   .cat-choice.on small { color: var(--accent); }
   @media (max-width: 760px) { .catgrid { grid-template-columns: repeat(5, 1fr); } }
-  .stop .meta { font-size: .72rem; color: var(--muted); margin-top: 2px; }
-  .stop .links { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .stop-more { margin-top: 7px; padding-top: 7px; border-top: 1px dotted var(--line); }
+  .stop .meta { font-size: .72rem; color: var(--muted); }
+  .stop .links { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px; }
   .stop .links a {
     font-size: .7rem; text-decoration: none; color: var(--accent);
     background: var(--accent-soft); padding: 2px 8px; border-radius: 20px;
@@ -287,6 +296,8 @@
     border: none; background: none; padding: 1px 4px; font-size: .75rem; color: var(--muted);
   }
   .stop .ops button:hover { color: var(--accent); }
+  .stop .ops button[data-op=more] { transition: transform .18s; }
+  .stop .ops button[data-op=more].open { transform: rotate(180deg); color: var(--accent); }
   .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
   .day-stay {
     display: flex; align-items: center; gap: 7px; cursor: pointer;
@@ -427,12 +438,10 @@
   }
   .tripometer:empty { display: none; }
   .stop.spin-glow { outline: 2px solid var(--accent); background: var(--accent-soft); border-radius: 8px; }
-  .stop-photo {
-    width: 66px; height: 66px; object-fit: cover; border-radius: 12px;
-    float: right; margin: 0 0 6px 9px; background: var(--bg);
-    box-shadow: 0 2px 10px rgba(0,0,0,.14);
+  .stop .detail {
+    font-size: .76rem; color: var(--muted); margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .stop .detail { font-size: .74rem; color: var(--muted); margin-top: 2px; font-style: italic; }
   .res-badge {
     display: inline-block; font-size: .69rem; font-weight: 700;
     border-radius: 20px; padding: 2px 9px; margin-top: 4px;
@@ -2066,32 +2075,50 @@ function render() {
       const want = fireCount(stop);
       const photo = stopPhoto(stop);
       const wiki = wikiInfo(stop);
+      const detailLine = (stop.notes && stop.notes.trim()) || (wiki && wiki.desc) || "";
+      const hasMore = !!(links || (stop.notes && stop.notes.trim()));
       s.innerHTML = `
-        <span class="num" style="background:${color}">${visited ? "✓" : si + 1}</span>
+        <div class="stop-thumb" style="--dc:${color}" title="Show on map">
+          <span class="thumb-ico">${catIcon(stop)}</span>
+          ${photo ? `<img loading="lazy" alt="" src="${esc(photo)}" onerror="this.remove()">` : ""}
+          <span class="stop-seq">${visited ? "✓" : si + 1}</span>
+        </div>
         <div class="body">
-          ${photo ? `<img class="stop-photo" loading="lazy" alt="" src="${esc(photo)}" onerror="this.remove()">` : ""}
           <div class="name"><span class="cat-badge" title="${esc(CATEGORIES[getCategory(stop)].label)}">${catIcon(stop)}</span> <span class="name-text"></span></div>
-          ${wiki && wiki.desc ? `<div class="detail">${esc(wiki.desc)}</div>` : ""}
-          <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}${stop.addedBy ? " · added by " + esc(avatar(stop.addedBy) + " " + stop.addedBy) : ""}</div>
+          ${detailLine ? `<div class="detail"></div>` : ""}
           ${resBadgeHtml(stop)}
-          ${links ? `<div class="links">${links}</div>` : ""}
-          ${stop.notes ? `<div class="notes">${esc(stop.notes)}</div>` : ""}
           <div class="acts">
             <button data-op="want" class="want ${myVote(stop) ? "on" : ""}" title="${esc(voteNames(stop)) || "Add to the crew's want-to-do list"}"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M12 3.4l2.5 5.5 6 .5-4.5 3.9 1.3 5.9-5.3-3.1-5.3 3.1 1.3-5.9L3.5 9.4l6-.5z"/></svg>${want ? `<span class="wc">${want}</span>` : ""}</button>
             <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
             <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Get directions in Google Maps"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.4"/></svg> Google Maps</a>
           </div>
+          <div class="stop-more" hidden>
+            <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}${stop.addedBy ? " · added by " + esc(avatar(stop.addedBy) + " " + stop.addedBy) : ""}</div>
+            ${links ? `<div class="links">${links}</div>` : ""}
+            ${stop.notes ? `<div class="notes"></div>` : ""}
+          </div>
         </div>
         <div class="ops">
+          ${hasMore ? `<button title="Details" data-op="more">⌄</button>` : ""}
           <button title="Edit" data-op="edit">✎</button>
           <button title="Move up" data-op="up">↑</button>
           <button title="Move down" data-op="down">↓</button>
         </div>`;
       s.querySelector(".name-text").textContent = stop.name;
-      s.querySelector(".body").style.cursor = "pointer";
-      s.querySelector(".body").onclick = (ev) => {
-        if (ev.target.tagName === "A" || ev.target.tagName === "BUTTON") return;
+      const dEl = s.querySelector(".detail"); if (dEl) dEl.textContent = detailLine;
+      const nEl = s.querySelector(".stop-more .notes"); if (nEl) nEl.textContent = stop.notes;
+      const panMap = (ev) => {
+        if (ev.target.tagName === "A" || ev.target.tagName === "BUTTON" || ev.target.closest("button, a")) return;
         map.setView([stop.lat, stop.lng], 13);
+      };
+      s.querySelector(".stop-thumb").onclick = () => map.setView([stop.lat, stop.lng], 13);
+      s.querySelector(".name").style.cursor = "pointer";
+      s.querySelector(".name").onclick = panMap;
+      const moreBtn = s.querySelector('[data-op=more]');
+      if (moreBtn) moreBtn.onclick = () => {
+        const m = s.querySelector(".stop-more");
+        m.hidden = !m.hidden;
+        moreBtn.classList.toggle("open", !m.hidden);
       };
       s.querySelector('[data-op=want]').onclick = () => setVote(stop, 1);
       s.querySelector('[data-op=visited]').onclick = (ev) => {
