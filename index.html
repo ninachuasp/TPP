@@ -368,6 +368,10 @@
     display: inline-flex; align-items: center; gap: 4px;
   }
   .stop .acts a.navgo .picon { width: 13px; height: 13px; }
+  .stop .acts button.want { display: inline-flex; align-items: center; gap: 4px; }
+  .stop .acts button.want .picon { width: 13px; height: 13px; }
+  .stop .acts button.want.on .picon { fill: var(--accent); }
+  .stop .acts button.want .wc { font-weight: 700; font-variant-numeric: tabular-nums; }
   .stop .acts a.navgo:hover { color: var(--accent); border-color: var(--accent); }
   .day-head .chev { border: none; background: none; padding: 0 2px; color: var(--muted); font-size: .8rem; }
   .day.today { border-color: var(--pop); box-shadow: 0 0 0 2px var(--pop); }
@@ -832,8 +836,7 @@ const stopVotes = stop => (SYNC_META ? stop.votes : meta.votes[stop.id]) || {};
 const fireCount = stop => Object.values(stopVotes(stop)).filter(Boolean).length;
 const mustCount = stop => Object.values(stopVotes(stop)).filter(x => x === 2).length;
 const myVote = stop => stopVotes(stop)[userName || "anonymous"] || 0;
-const voteNames = stop => Object.entries(stopVotes(stop))
-  .map(([n, lv]) => avatar(n) + " " + n + (lv === 2 ? " 💯" : "")).join(", ");
+const voteNames = stop => { const ns = Object.entries(stopVotes(stop)).filter(([, lv]) => lv).map(([n]) => avatar(n) + " " + n); return ns.length ? "Wants to do this: " + ns.join(", ") : ""; };
 function setVote(stop, level) {
   const k = userName || "anonymous";
   const v = { ...stopVotes(stop) };
@@ -1960,6 +1963,7 @@ function render() {
       s.dataset.stopId = stop.id;
       const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join("");
+      const want = fireCount(stop);
       const photo = stopPhoto(stop);
       const wiki = wikiInfo(stop);
       s.innerHTML = `
@@ -1973,6 +1977,7 @@ function render() {
           ${links ? `<div class="links">${links}</div>` : ""}
           ${stop.notes ? `<div class="notes">${esc(stop.notes)}</div>` : ""}
           <div class="acts">
+            <button data-op="want" class="want ${myVote(stop) ? "on" : ""}" title="${esc(voteNames(stop)) || "Add to the crew's want-to-do list"}"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M12 3.4l2.5 5.5 6 .5-4.5 3.9 1.3 5.9-5.3-3.1-5.3 3.1 1.3-5.9L3.5 9.4l6-.5z"/></svg>${want ? `<span class="wc">${want}</span>` : ""}</button>
             <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
             <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Get directions in Google Maps"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.4"/></svg> Google Maps</a>
           </div>
@@ -1988,6 +1993,7 @@ function render() {
         if (ev.target.tagName === "A" || ev.target.tagName === "BUTTON") return;
         map.setView([stop.lat, stop.lng], 13);
       };
+      s.querySelector('[data-op=want]').onclick = () => setVote(stop, 1);
       s.querySelector('[data-op=visited]').onclick = (ev) => {
         const wasVisited = isVisited(stop);
         toggleVisited(stop);
@@ -2149,7 +2155,7 @@ function renderQuest() {
   nodes.forEach((n, i) => {
     const visited = isVisited(n.stop);
     const color = dayColor(n.di);
-    const musts = mustCount(n.stop), fires = fireCount(n.stop);
+    const want = fireCount(n.stop);
     const res = getReservation(n.stop);
     const photo = stopPhoto(n.stop);
     const wiki = wikiInfo(n.stop);
@@ -2166,7 +2172,7 @@ function renderQuest() {
       ${res ? `<text x="${n.x - 26}" y="${n.y - 22}" font-size="13">${res.kind === "hotel" ? "🏨" : res.kind === "dinner" ? "🍽️" : res.kind === "activity" ? "🎫" : "🚗"}</text>` : ""}
       <text x="${lx}" y="${n.y - 1}" text-anchor="${anchor}" font-size="14" font-weight="600" fill="${INK}" ${serif}>${esc(n.stop.name.length > 26 ? n.stop.name.slice(0, 25) + "…" : n.stop.name)}</text>
       ${desc ? `<text x="${lx}" y="${n.y + 15}" text-anchor="${anchor}" font-size="10" font-style="italic" fill="${MUTED}">${esc(desc)}</text>` : ""}
-      ${(musts || fires) ? `<text x="${lx}" y="${n.y + (desc ? 30 : 15)}" text-anchor="${anchor}" font-size="9.5" fill="${musts ? "#b0483f" : MUTED}" letter-spacing="1.5">${musts ? "MUST-DO" + (musts > 1 ? " ×" + musts : "") : ""}${musts && fires ? "  ·  " : ""}${fires ? "♡ " + fires : ""}</text>` : ""}
+      ${want ? `<text x="${lx}" y="${n.y + (desc ? 30 : 15)}" text-anchor="${anchor}" font-size="9.5" fill="${color}" letter-spacing="1.2" font-weight="700">★ ${want}</text>` : ""}
     </g>`;
   });
   out += `</svg>`;
