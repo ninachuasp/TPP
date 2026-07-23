@@ -1741,6 +1741,7 @@ function linkLabel(url) {
 /* ---------- add flow ---------- */
 /* the category picked in the Add dialog, as a links-array entry (or none) */
 function addCatLinks() { const k = $("addCat").dataset.pick; return k ? [{ type: "category", key: k }] : []; }
+let shortLinkResolverDown = false;  // set true once we learn the resolver isn't deployed
 
 function openAdd() {
   $("addInput").value = "";
@@ -1768,6 +1769,29 @@ async function handleAdd() {
 
   if (/maps\.app\.goo\.gl|goo\.gl\/maps/.test(text)) {
     const short = text.match(/https?:\/\/\S*goo\.gl\/\S+/)?.[0] || text;
+    // Try the server-side resolver first (a static page can't follow the
+    // redirect itself); fall back to the manual open-and-copy flow.
+    if (!shortLinkResolverDown) {
+      toast("Expanding that short link…");
+      try {
+        const r = await fetch(SB_URL + "/functions/v1/resolve-maps", {
+          method: "POST",
+          headers: { "content-type": "application/json", apikey: SB_KEY, authorization: "Bearer " + SB_KEY },
+          body: JSON.stringify({ url: short }),
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          if (d && d.lat && d.lng) {
+            addStopM(dayId, { name: d.name || nameFromGoogleMapsUrl(d.url) || "Pinned place", lat: d.lat, lng: d.lng, links: [d.url || short, ...addCatLinks()] });
+            input.value = ""; $("addDialog").close();
+            return;
+          }
+        } else if (r.status === 404 || r.status === 401) {
+          shortLinkResolverDown = true;  // not deployed / unauthorized — stop trying this session
+        }
+      } catch (e) { /* offline or blocked — fall through to manual */ }
+    }
     toast("Short links don't carry coordinates — tap to open it, then copy the full URL from the address bar and paste it back here.", {
       label: "Open in Maps ↗",
       fn: () => window.open(short, "_blank", "noopener"),
