@@ -1752,6 +1752,17 @@ function linkLabel(url) {
 function addCatLinks() { const k = $("addCat").dataset.pick; return k ? [{ type: "category", key: k }] : []; }
 let shortLinkResolverDown = false;  // set true once we learn the resolver isn't deployed
 
+/* <option>s for a day <select>: "Day N · Mon 12 Oct" — just the day, no crew */
+function dayOptionsHtml() {
+  let dn = 0;
+  return trip.days.map(d => {
+    let label;
+    if (!excludedDay(d)) { dn++; label = "Day " + dn + (d.date ? " · " + fmtDate(d.date) : ""); }
+    else label = d.title || "Ideas";
+    return `<option value="${d.id}">${esc(label)}</option>`;
+  }).join("");
+}
+
 function openAdd() {
   $("addInput").value = "";
   $("geoResults").innerHTML = "";
@@ -1764,7 +1775,7 @@ function openAdd() {
     cg.appendChild(b);
   });
   const sel = $("addDay"), prev = sel.value;
-  sel.innerHTML = trip.days.map(d => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  sel.innerHTML = dayOptionsHtml();
   sel.value = [...sel.options].some(o => o.value === prev) ? prev : (trip.days[0] && trip.days[0].id) || "";
   $("addDialog").showModal();
   setTimeout(() => $("addInput").focus(), 40);
@@ -1953,7 +1964,7 @@ function render() {
 
   const daySel = $("addDay");
   const prevSel = daySel.value;
-  daySel.innerHTML = trip.days.map(d => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  daySel.innerHTML = dayOptionsHtml();
   if ([...daySel.options].some(o => o.value === prevSel)) daySel.value = prevSel;
 
   const container = $("days");
