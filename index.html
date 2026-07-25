@@ -651,7 +651,7 @@
     <div class="cover-ticket" id="coverRegister" hidden>
       <div class="cover-kicker">WELCOME TO PLONK!</div>
       <div class="cover-title">Who's planning?</div>
-      <div class="cover-meta">Add your name and a face so your crew knows who's who.</div>
+      <div class="cover-meta">Add your name, then choose an emoji or upload a photo.</div>
       <div class="reg-row">
         <div id="regPreview" class="trav-ava"></div>
         <input id="regName" placeholder="your name" autocomplete="off">
@@ -2927,7 +2927,8 @@ function coverStep(which) {
   if (which === "trips") renderTripList();
 }
 function showCoverIfNew() {
-  if (sessionStorage.getItem("tpp.entered")) return;
+  // Always land on the home cover when the app opens (register if new, else
+  // pick a trip) — consistent across desktop and phone.
   if (userName) coverStep("trips"); else { setupRegister(); coverStep("register"); }
   $("cover").classList.add("show");
 }
