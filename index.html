@@ -429,13 +429,26 @@
   }
   #discoverHint.show { display: block; }
   .poi-marker {
-    width: 16px; height: 16px; border-radius: 50%; background: var(--pop);
-    border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+    position: relative; width: 24px; height: 24px; border-radius: 50%; background: #fff;
+    border: 1.5px solid var(--accent); box-shadow: 0 1px 5px rgba(0,0,0,.3);
     display: flex; align-items: center; justify-content: center;
-    color: var(--on-accent); font-size: 12px; font-weight: 800; line-height: 1;
   }
+  .poi-marker .picon { width: 14px; height: 14px; color: var(--accent); }
+  .poi-marker .poi-plus {
+    position: absolute; right: -5px; top: -5px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--pop); color: var(--on-accent); font-size: 11px; font-weight: 800;
+    line-height: 13px; text-align: center; border: 1.5px solid #fff;
+  }
+  .poi-label {
+    background: rgba(255,255,255,.93); border: none; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+    border-radius: 5px; padding: 1px 6px; font-size: 11px; font-weight: 600; color: #222; white-space: nowrap;
+  }
+  .poi-label::before { display: none; }
+  body.night .poi-label { background: rgba(28,33,48,.94); color: #e8e8ef; }
   .poi-pop b { font-size: .9rem; }
-  .poi-pop .poi-cat { color: var(--muted); font-size: .76rem; text-transform: capitalize; }
+  .poi-pop .poi-jp { font-size: .8rem; color: var(--ink); }
+  .poi-pop .poi-cat { color: var(--muted); font-size: .76rem; display: inline-flex; align-items: center; gap: 4px; }
+  .poi-pop .poi-cat .picon { width: 13px; height: 13px; }
   .poi-pop button {
     margin-top: 7px; width: 100%; border: none; background: var(--accent); color: #fff;
     border-radius: 8px; padding: 6px 10px; font-weight: 700; cursor: pointer; font-size: .8rem;
@@ -1373,7 +1386,17 @@ let AVA_SYNC = false;
 const avatarsKey = () => "tpp.avatars." + (LIVE ? LIVE_TRIP_ID : "local");
 let localAvatars = {};
 try { localAvatars = JSON.parse(localStorage.getItem(avatarsKey()) || "{}"); } catch (e) {}
-const chosenAvatars = () => (AVA_SYNC && trip && trip.avatars) ? trip.avatars : localAvatars;
+/* Prefer the synced map, but fall back to this device's localStorage per field
+ * so a photo saved before the avatars column existed still shows. */
+const chosenAvatars = () => {
+  if (!(AVA_SYNC && trip)) return localAvatars;
+  const synced = trip.avatars || {}, merged = { ...localAvatars };
+  for (const k in synced) {
+    const s = synced[k], l = merged[k];
+    merged[k] = (s && typeof s === "object" && l && typeof l === "object") ? { ...l, ...s } : s;
+  }
+  return merged;
+};
 /* A traveller's stored value is either a legacy emoji string or a record
  * { e: emoji, p: photoDataURL, n: displayName }. */
 const avaVal = name => chosenAvatars()[String(name || "").trim().toLowerCase()];
@@ -1667,6 +1690,24 @@ async function fetchLiveTrip() {
     })),
   }));
   const result = { id: t.data.id, title: t.data.title, days, avatars: t.data.avatars || null };
+  // Fold any device-local avatar records (photos/emojis saved before the
+  // avatars column existed) into the synced map, and push additions up so
+  // they sync to everyone — no need to re-upload.
+  if (AVA_SYNC) {
+    const map = { ...(result.avatars || {}) };
+    let changed = false;
+    for (const k in localAvatars) {
+      const l = localAvatars[k]; if (!l || typeof l !== "object") continue;
+      const s = (map[k] && typeof map[k] === "object") ? map[k] : (map[k] ? { e: map[k] } : {});
+      const merged = { ...l, ...s };
+      if (l.p && !s.p) { merged.p = l.p; changed = true; }
+      if (l.e && !s.e) merged.e = l.e;
+      if (l.n && !s.n) merged.n = l.n;
+      if (!map[k]) changed = true;
+      map[k] = merged;
+    }
+    if (changed) { result.avatars = map; dbTry(sb.from("trip_trips").update({ avatars: map }).eq("id", t.data.id)); }
+  }
   try { localStorage.setItem(cacheKey(), JSON.stringify(result)); } catch (e) {}
   setSync("synced " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
   return result;
@@ -2033,7 +2074,8 @@ function openAdd(prefill) {
   $("addInput").value = prefill ? prefill.name : "";
   $("geoResults").innerHTML = "";
   const cg = $("addCat"); cg.innerHTML = ""; cg.dataset.pick = (prefill && prefill.cat) || "";
-  Object.entries(CATEGORIES).forEach(([key, c]) => {
+  PICK_CATEGORIES.forEach(key => {
+    const c = CATEGORIES[key];
     const b = document.createElement("button");
     b.type = "button"; b.className = "cat-choice" + (cg.dataset.pick === key ? " on" : "");
     b.innerHTML = `${catSvg(key)}<small>${c.label}</small>`;
@@ -2146,8 +2188,7 @@ async function geocodeSearch(query, dayId) {
  * Stored as a {type:"category",key} object inside the (synced) links array,
  * so it rides the existing column with no migration; falls back to a guess. */
 const CATEGORIES = {
-  food:      { icon: "🍽️", label: "Food" },
-  drink:     { icon: "🍶", label: "Drinks" },
+  food:      { icon: "🍽️", label: "Food & drinks" },
   stay:      { icon: "🏨", label: "Stay" },
   onsen:     { icon: "♨️", label: "Onsen" },
   nature:    { icon: "🌲", label: "Nature" },
@@ -2155,12 +2196,14 @@ const CATEGORIES = {
   activity:  { icon: "🎢", label: "Activity" },
   shop:      { icon: "🛍️", label: "Shopping" },
   transport: { icon: "🚉", label: "Transport" },
-  spot:      { icon: "📍", label: "Spot" },
+  rest:      { icon: "🪑", label: "Rest stop" },
+  spot:      { icon: "📍", label: "Place" },   // neutral fallback (not offered in the picker)
 };
+/* categories offered in the picker (everything except the neutral fallback) */
+const PICK_CATEGORIES = Object.keys(CATEGORIES).filter(k => k !== "spot");
 /* Custom hand-drawn Plonk icon set (line icons, roughen-filtered). */
 const ICON_PATHS = {
   food:      '<path d="M4 10.5h16a8 8 0 0 1-16 0Z"/><path d="M3 10.5h18"/><path d="M15 3.5 11 9"/>',       // ramen bowl
-  drink:     '<path d="M6 4.5h12l-1.4 9c-.3 2-1.7 3-3.1 3h-2.9c-1.4 0-2.8-1-3.1-3L6 4.5Z"/><path d="M12 2.5v2"/>', // takeaway cup + straw
   stay:      '<path d="M3 18v-5h10a4 4 0 0 1 4 4v1M3 18h14M3 18v2.5M3 13V8M6 13v-1a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 11 12v1"/>', // bed
   onsen:     '<path d="M4 13.5h16a8 8 0 0 1-16 0Z"/><path d="M8 4c-1.2 1.5.9 2.6 0 4.2M12 4c-1.2 1.5.9 2.6 0 4.2M16 4c-1.2 1.5.9 2.6 0 4.2"/>', // hot spring
   nature:    '<path d="M12 3 6 11h3l-4 6h14l-4-6h3Z"/><path d="M12 17v4"/>',                                 // pine tree
@@ -2168,6 +2211,7 @@ const ICON_PATHS = {
   activity:  '<path d="M6 21V3M6 4h12l-3.2 4L18 12H6"/>',                                                     // flag
   shop:      '<path d="M5.5 8h13l-1 11.5H6.5L5.5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',                     // shopping bag
   transport: '<rect x="5" y="4.5" width="14" height="11" rx="3"/><path d="M5 11h14"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>', // train/bus
+  rest:      '<path d="M4 13h16M6 13v4M18 13v4M6 13v-3h12v3"/><path d="M9 7l1.5-3M15 7l-1.5-3"/>',            // bench (rest stop)
   spot:      '<path d="M12 21s6.5-6 6.5-11a6.5 6.5 0 1 0-13 0C5.5 15 12 21 12 21Z"/><circle cx="12" cy="10" r="2.4"/>', // pin
 };
 function catSvg(key, cls) {
@@ -2199,8 +2243,7 @@ function guessCategory(stop) {
   if (/airport|station|rental car|\bbus\b|ferry|pickup|drop car|drop off|fly out/.test(t)) return "transport";
   if (/hotel|ryokan|\binn\b|hostel|lodge|guesthouse|ryokan/.test(t)) return "stay";
   if (/onsen|hot spring|jigokudani|hell valley/.test(t)) return "onsen";
-  if (/beer|whisky|whiskey|distillery|sake|\bbar\b|nightcap|brewery/.test(t)) return "drink";
-  if (/market|ramen|sushi|kaisendon|seafood|dinner|lunch|breakfast|cafe|coffee|\bfood\b|\beat\b|bbq|jingisukan|izakaya|restaurant|soft serve|melon|uni[- ]?don/.test(t)) return "food";
+  if (/beer|whisky|whiskey|distillery|sake|\bbar\b|nightcap|brewery|market|ramen|sushi|kaisendon|seafood|dinner|lunch|breakfast|cafe|coffee|\bfood\b|\beat\b|bbq|jingisukan|izakaya|restaurant|soft serve|melon|uni[- ]?don/.test(t)) return "food";
   if (/park|falls|pond|lake|gorge|garden|hills|flower|lavender|cape|forest|\bmt\.?\b|mountain|patchwork|blue pond/.test(t)) return "nature";
   if (/shop|shopping|souvenir|tanukikoji|koibito/.test(t)) return "shop";
   if (/zoo|ski jump|ropeway|terrace|farm|factory|park.*noguchi|moerenuma/.test(t)) return "activity";
@@ -2507,12 +2550,25 @@ function renderMap() {
 let discoverOn = false, poiLayer = null, discoverTimer = null;
 function catFromTags(t) {
   if (t.natural === "hot_spring" || t.amenity === "public_bath") return "onsen";
+  if (t.tourism === "hotel" || t.tourism === "guest_house" || t.tourism === "hostel") return "stay";
+  if (t.tourism === "picnic_site" || t.highway === "rest_area") return "rest";
+  if (t.amenity === "restaurant" || t.amenity === "cafe" || t.amenity === "fast_food" || t.amenity === "bar" || t.amenity === "pub") return "food";
   if (t.tourism === "museum" || t.tourism === "gallery" || t.tourism === "artwork" || t.tourism === "viewpoint" || t.historic) return "sight";
   if (t.tourism === "zoo" || t.tourism === "theme_park" || t.tourism === "aquarium" || t.tourism === "attraction") return "activity";
   if (t.leisure === "park" || t.leisure === "garden" || t.natural) return "nature";
   if (t.shop) return "shop";
-  if (t.amenity === "restaurant" || t.amenity === "cafe") return "food";
   return "spot";
+}
+/* pick an English/romaji label from OSM name tags, with the Japanese name as a
+ * secondary line. OSM often only has a Japanese `name`, so fall back through
+ * every romanised variant before giving up. */
+function poiNames(t) {
+  const en = t["name:en"] || t["int_name"] || t["name:en-Latn"] || t["name:ja_rm"] || t["name:ja-Latn"];
+  const nameIsJa = /[぀-ヿ一-龯]/.test(t.name || "");
+  const ja = t["name:ja"] || (nameIsJa ? t.name : "");
+  const primary = en || (!nameIsJa && t.name) || t.name || ja || "";
+  const secondary = (ja && ja !== primary) ? ja : "";
+  return { primary, secondary };
 }
 const nearExistingStop = (lat, lng) => trip.days.some(d => d.stops.some(s =>
   Math.abs(s.lat - lat) < 0.0009 && Math.abs(s.lng - lng) < 0.0009));
@@ -2526,32 +2582,37 @@ async function discoverPOIs() {
   const b = map.getBounds();
   const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
   setDiscoverHint("Finding nearby places…");
-  const q = `[out:json][timeout:15];(` +
-    `node["tourism"~"attraction|museum|viewpoint|artwork|gallery|zoo|theme_park|aquarium"](${bbox});` +
+  const zoomed = map.getZoom() >= 15;
+  let q = `[out:json][timeout:20];(` +
+    `node["tourism"~"attraction|museum|viewpoint|artwork|gallery|zoo|theme_park|aquarium|hotel|guest_house"](${bbox});` +
     `node["leisure"~"park|garden"](${bbox});` +
     `node["natural"~"peak|waterfall|hot_spring|beach"](${bbox});` +
-    `node["historic"](${bbox}););out body 50;`;
+    `node["historic"](${bbox});`;
+  if (zoomed) q += `node["amenity"~"restaurant|cafe|fast_food|bar|pub"](${bbox});node["shop"~"."](${bbox});`;
+  q += `);out body 70;`;
   try {
     const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: "data=" + encodeURIComponent(q) });
     const data = await res.json();
     if (!poiLayer) poiLayer = L.layerGroup().addTo(map); else poiLayer.clearLayers();
     let n = 0;
     (data.elements || []).forEach(el => {
-      const name = el.tags && el.tags.name; if (!name || !el.lat) return;
+      if (!el.tags || !el.lat) return;
+      const { primary, secondary } = poiNames(el.tags);
+      if (!primary) return;
       if (nearExistingStop(el.lat, el.lon)) return;
-      if (n >= 50) return; n++;
+      if (n >= 60) return; n++;
       const key = catFromTags(el.tags);
-      const m = L.marker([el.lat, el.lon], { icon: L.divIcon({ className: "", html: `<div class="poi-marker">+</div>`, iconSize: [16, 16], iconAnchor: [8, 8] }) });
-      const pid = "poi" + el.id;
-      m.bindPopup(`<div class="poi-pop"><b>${esc(name)}</b><br><span class="poi-cat">${esc(CATEGORIES[key].label)}</span><button data-poi="${pid}">＋ Add to trip</button></div>`);
+      const m = L.marker([el.lat, el.lon], { icon: L.divIcon({ className: "", html: `<div class="poi-marker">${catSvg(key)}<span class="poi-plus">+</span></div>`, iconSize: [24, 24], iconAnchor: [12, 12] }) });
+      m.bindTooltip(esc(primary), { permanent: true, direction: "right", offset: [11, 0], className: "poi-label" });
+      m.bindPopup(`<div class="poi-pop"><b>${esc(primary)}</b>${secondary ? `<br><span class="poi-jp">${esc(secondary)}</span>` : ""}<br><span class="poi-cat">${catSvg(key)} ${esc(CATEGORIES[key].label)}</span><button data-poi="add">＋ Add to trip</button></div>`);
       m.on("popupopen", (e) => {
         const btn = e.popup.getElement().querySelector("[data-poi]");
-        if (btn) btn.onclick = () => { map.closePopup(); addSuggestion({ name, lat: el.lat, lng: el.lon, cat: key }); };
+        if (btn) btn.onclick = () => { map.closePopup(); addSuggestion({ name: primary, lat: el.lat, lng: el.lon, cat: key }); };
       });
       poiLayer.addLayer(m);
     });
-    setDiscoverHint(n ? n + " nearby — tap a ✦ to add it" : "No suggestions here — try another area");
-    setTimeout(() => { if (discoverOn) setDiscoverHint(""); }, 3500);
+    setDiscoverHint(n ? n + " places nearby — tap one to add it" : "No places found here — try another spot");
+    setTimeout(() => { if (discoverOn) setDiscoverHint(""); }, 4000);
   } catch (e) {
     setDiscoverHint("Couldn't load nearby places right now");
   }
@@ -2726,7 +2787,8 @@ function openEdit(day, stop) {
   $("editName").value = stop.name;
   $("editNotes").value = stop.notes || "";
   const cg = $("editCat"); cg.innerHTML = ""; cg.dataset.pick = getCategory(stop);
-  Object.entries(CATEGORIES).forEach(([key, c]) => {
+  PICK_CATEGORIES.forEach(key => {
+    const c = CATEGORIES[key];
     const b = document.createElement("button");
     b.type = "button"; b.className = "cat-choice" + (key === cg.dataset.pick ? " on" : "");
     b.innerHTML = `${catSvg(key)}<small>${c.label}</small>`;
@@ -3115,15 +3177,29 @@ function showCoverIfNew() {
 }
 /* --- registration / profile step (name + emoji/photo) ---
  * regPhotoPending: undefined = unchanged, null = cleared, string = new photo. */
-let regPhotoPending;
+let regPhotoPending;      // undefined = unchanged, null = cleared, string = new
+let regEmojiTouched = false;
 let regEditing = false;
 function regPreviewRender() {
-  const photo = regPhotoPending !== undefined ? regPhotoPending : (userName ? travellerPhoto(userName) : null);
-  $("regPreview").innerHTML = photo ? `<img src="${photo}" alt="">` : ($("regEmojiGrid").dataset.pick || "🙂");
+  let photo = null, emoji = $("regEmojiGrid").dataset.pick || "🙂";
+  if (regPhotoPending !== undefined) {
+    photo = regPhotoPending;                       // set/cleared this session
+  } else if (regEditing && userName) {
+    photo = travellerPhoto(userName);              // editing own profile
+  } else if (!regEditing) {
+    // fresh entry: if the typed name matches a saved profile, preview it
+    const rec = chosenAvatars()[($("regName").value || "").trim().toLowerCase()];
+    if (rec && typeof rec === "object") {
+      if (rec.p) photo = rec.p;
+      if (rec.e && !regEmojiTouched) emoji = rec.e;
+    }
+  }
+  $("regPreview").innerHTML = photo ? `<img src="${photo}" alt="">` : emoji;
   $("regPhotoClear").hidden = !photo;
 }
 function setupRegister(editing) {
   regEditing = !!editing;
+  regEmojiTouched = false;
   const grid = $("regEmojiGrid"); grid.hidden = true; grid.innerHTML = "";
   if (editing) {
     regPhotoPending = undefined;               // keep current photo unless changed
@@ -3138,7 +3214,7 @@ function setupRegister(editing) {
     grid.dataset.pick = (typeof v === "string" ? v : (v && v.e)) || avatar(userName) || "🦊";
   } else {
     // Fresh entry — never assume the last person; make them type their name.
-    regPhotoPending = null;
+    regPhotoPending = undefined;
     $("regName").value = "";
     $("regKicker").textContent = "WELCOME TO PLONK!";
     $("regTitle").textContent = "Who's planning?";
@@ -3156,7 +3232,7 @@ function setupRegister(editing) {
   AVATAR_CHOICES.forEach(e => {
     const btn = document.createElement("button"); btn.type = "button"; btn.textContent = e;
     btn.className = "ava-choice" + (e === grid.dataset.pick ? " on" : "");
-    btn.onclick = () => { grid.querySelectorAll(".ava-choice").forEach(x => x.classList.remove("on")); btn.classList.add("on"); grid.dataset.pick = e; regPhotoPending = null; regPreviewRender(); };
+    btn.onclick = () => { grid.querySelectorAll(".ava-choice").forEach(x => x.classList.remove("on")); btn.classList.add("on"); grid.dataset.pick = e; regEmojiTouched = true; regPhotoPending = null; regPreviewRender(); };
     grid.appendChild(btn);
   });
   regPreviewRender();
@@ -3179,12 +3255,16 @@ $("regPhotoInput").onchange = (e) => {
 };
 $("btnRegBack").onclick = () => coverStep("trips");
 $("btnEditProfile").onclick = () => { setupRegister(true); coverStep("register"); };
+$("regName").addEventListener("input", () => { if (!regEditing) regPreviewRender(); });
 $("btnRegister").onclick = () => {
   const n = $("regName").value.trim();
   if (!n) { toast("Add your name to continue"); return; }
+  const existed = chosenAvatars()[n.toLowerCase()];
   userName = n; localStorage.setItem(NAME_KEY, userName);
   const patch = { n: userName };
-  if ($("regEmojiGrid").dataset.pick) patch.e = $("regEmojiGrid").dataset.pick;
+  // Only overwrite emoji/photo when the user actively changed them, so keying
+  // in an existing name keeps that profile's saved emoji & photo.
+  if (regEditing || regEmojiTouched || !existed) patch.e = $("regEmojiGrid").dataset.pick;
   if (regPhotoPending !== undefined) patch.p = regPhotoPending;
   saveAvatarRec(userName, patch);
   coverStep("trips");
