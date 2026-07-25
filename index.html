@@ -147,7 +147,31 @@
   #cover.hiding { animation: coverOut .42s ease forwards; }
   @keyframes coverOut { to { opacity: 0; transform: scale(1.03); visibility: hidden; } }
   .cover-inner { width: 100%; max-width: 372px; display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center; }
-  .cover-logo { width: 176px; height: auto; }
+  .cover-head { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .cover-logo { width: 176px; height: auto; overflow: visible; }
+  .cover-tag { color: rgba(255,255,255,.82); font-size: .82rem; letter-spacing: .02em; }
+  .cover-pin { animation: pinDrop 0.95s cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes pinDrop {
+    0% { transform: translateY(-62px); opacity: 0; }
+    55% { transform: translateY(0); opacity: 1; }
+    72% { transform: translateY(-8px); }
+    86% { transform: translateY(0); }
+    93% { transform: translateY(-3px); }
+    100% { transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .cover-pin { animation: none; } }
+  .cover-continueas {
+    display: inline-flex; align-items: center; gap: 8px; margin: 2px auto 0; padding: 8px 14px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--panel); cursor: pointer;
+    font: inherit; font-size: .85rem; font-weight: 700; color: var(--ink);
+  }
+  .cover-continueas:hover { border-color: var(--accent); }
+  .cover-continueas .ca-ava {
+    width: 24px; height: 24px; border-radius: 50%; overflow: hidden; background: var(--accent-soft);
+    display: inline-flex; align-items: center; justify-content: center; font-size: .95rem;
+  }
+  .cover-continueas .ca-ava img { width: 100%; height: 100%; object-fit: cover; }
+  .ava-grid[hidden] { display: none; }
   .cover-ticket {
     background: var(--panel); color: var(--ink); width: 100%;
     border-radius: 20px; padding: 26px 24px 24px;
@@ -685,23 +709,29 @@
 
 <div id="cover">
   <div class="cover-inner">
-    <svg class="cover-logo" viewBox="0 0 244 84" role="img" aria-label="Plonk!">
-      <text x="2" y="60" font-family="ui-rounded, 'Arial Rounded MT Bold', 'Nunito', system-ui" font-size="60" font-weight="800" letter-spacing="-1" fill="#fff">Plonk</text>
-      <g transform="rotate(9 208 30)">
-        <path d="M208 5 C197.5 5 190 12.8 190 21.5 C190 32 208 46 208 46 C208 46 226 32 226 21.5 C226 12.8 218.5 5 208 5 Z" fill="var(--pop)"/>
-        <circle cx="201.5" cy="20" r="4.6" fill="#fff"/><circle cx="214.5" cy="20" r="4.6" fill="#fff"/>
-        <circle cx="202.8" cy="20.6" r="2.1" fill="#12205f"/><circle cx="215.8" cy="20.6" r="2.1" fill="#12205f"/>
-      </g>
-      <circle cx="211" cy="57" r="5.5" fill="var(--pop)"/>
-    </svg>
+    <div class="cover-head">
+      <svg class="cover-logo" viewBox="0 0 244 84" role="img" aria-label="Plonk!">
+        <text x="2" y="60" font-family="ui-rounded, 'Arial Rounded MT Bold', 'Nunito', system-ui" font-size="60" font-weight="800" letter-spacing="-1" fill="#fff">Plonk</text>
+        <g class="cover-pin">
+          <g transform="rotate(9 208 30)">
+            <path d="M208 5 C197.5 5 190 12.8 190 21.5 C190 32 208 46 208 46 C208 46 226 32 226 21.5 C226 12.8 218.5 5 208 5 Z" fill="var(--pop)"/>
+            <circle cx="201.5" cy="20" r="4.6" fill="#fff"/><circle cx="214.5" cy="20" r="4.6" fill="#fff"/>
+            <circle cx="202.8" cy="20.6" r="2.1" fill="#12205f"/><circle cx="215.8" cy="20.6" r="2.1" fill="#12205f"/>
+          </g>
+          <circle cx="211" cy="57" r="5.5" fill="var(--pop)"/>
+        </g>
+      </svg>
+      <div class="cover-tag">you plonk, we plan</div>
+    </div>
     <div class="cover-ticket" id="coverRegister" hidden>
       <div class="cover-kicker" id="regKicker">WELCOME TO PLONK!</div>
       <div class="cover-title" id="regTitle">Who's planning?</div>
-      <div class="cover-meta">Add your name, then choose an emoji or upload a photo.</div>
+      <div class="cover-meta" id="regMeta">Add your name, then choose an emoji or upload a photo.</div>
       <div class="reg-row">
         <div id="regPreview" class="trav-ava"></div>
         <input id="regName" placeholder="your name" autocomplete="off">
       </div>
+      <button type="button" id="btnContinueAs" class="cover-continueas" hidden></button>
       <div class="trav-rep-btns" style="justify-content:center">
         <button type="button" id="regEmojiBtn">😀 Choose emoji</button>
         <button type="button" id="regPhotoBtn">📷 Upload photo</button>
@@ -723,7 +753,6 @@
       <div id="tripList" class="trip-list"></div>
       <button id="btnNewTrip" class="cover-newtrip">＋ Start a new trip</button>
     </div>
-    <div class="cover-foot">you plonk, we plan</div>
   </div>
 </div>
 
@@ -3095,16 +3124,35 @@ function regPreviewRender() {
 }
 function setupRegister(editing) {
   regEditing = !!editing;
-  regPhotoPending = undefined;
-  $("regName").value = userName || "";
-  const returning = !editing && !!userName;
-  $("regKicker").textContent = editing ? "YOUR PROFILE" : (returning ? "WELCOME BACK" : "WELCOME TO PLONK!");
-  $("regTitle").textContent = editing ? "Your profile" : (returning ? "It's you, right?" : "Who's planning?");
-  $("btnRegister").textContent = editing ? "Save →" : "Continue →";
-  $("btnRegBack").hidden = !editing;
   const grid = $("regEmojiGrid"); grid.hidden = true; grid.innerHTML = "";
-  const v = avaVal(userName);
-  grid.dataset.pick = (typeof v === "string" ? v : (v && v.e)) || (userName ? avatar(userName) : "🦊");
+  if (editing) {
+    regPhotoPending = undefined;               // keep current photo unless changed
+    $("regName").value = userName || "";
+    $("regKicker").textContent = "YOUR PROFILE";
+    $("regTitle").textContent = "Your profile";
+    $("regMeta").textContent = "Update your name, emoji or photo.";
+    $("btnRegister").textContent = "Save →";
+    $("btnRegBack").hidden = false;
+    $("btnContinueAs").hidden = true;
+    const v = avaVal(userName);
+    grid.dataset.pick = (typeof v === "string" ? v : (v && v.e)) || avatar(userName) || "🦊";
+  } else {
+    // Fresh entry — never assume the last person; make them type their name.
+    regPhotoPending = null;
+    $("regName").value = "";
+    $("regKicker").textContent = "WELCOME TO PLONK!";
+    $("regTitle").textContent = "Who's planning?";
+    $("regMeta").textContent = "Pop in your name to join the trip.";
+    $("btnRegister").textContent = "Continue →";
+    $("btnRegBack").hidden = true;
+    grid.dataset.pick = "🦊";
+    const ca = $("btnContinueAs");
+    if (userName) {
+      const photo = travellerPhoto(userName);
+      ca.innerHTML = `<span class="ca-ava">${photo ? `<img src="${esc(photo)}" alt="">` : avatar(userName)}</span><span>Continue as ${esc(userName)}</span>`;
+      ca.hidden = false;
+    } else ca.hidden = true;
+  }
   AVATAR_CHOICES.forEach(e => {
     const btn = document.createElement("button"); btn.type = "button"; btn.textContent = e;
     btn.className = "ava-choice" + (e === grid.dataset.pick ? " on" : "");
@@ -3113,6 +3161,7 @@ function setupRegister(editing) {
   });
   regPreviewRender();
 }
+$("btnContinueAs").onclick = () => coverStep("trips");
 $("regEmojiBtn").onclick = () => { const g = $("regEmojiGrid"); g.hidden = !g.hidden; };
 $("regPhotoBtn").onclick = () => $("regPhotoInput").click();
 $("regPhotoClear").onclick = () => { regPhotoPending = null; regPreviewRender(); };
