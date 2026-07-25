@@ -298,6 +298,10 @@
   .stop .ops button:hover { color: var(--accent); }
   .stop .ops button[data-op=more] { transition: transform .18s; }
   .stop .ops button[data-op=more].open { transform: rotate(180deg); color: var(--accent); }
+  .stop .ops button.drag-handle { cursor: grab; color: var(--muted); touch-action: none; padding: 2px 4px; }
+  .stop .ops button.drag-handle:hover { color: var(--accent); }
+  .stop .ops button.drag-handle:active { cursor: grabbing; }
+  .stop.dragging { background: var(--accent-soft); border-radius: 12px; box-shadow: 0 10px 26px -10px rgba(0,0,0,.4); position: relative; z-index: 6; }
   .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
   .day-stay {
     display: flex; align-items: center; gap: 7px; cursor: pointer;
@@ -1662,6 +1666,56 @@ function moveStop(day, i, delta) {
     render();
   } else persistLocal();
 }
+/* Move a stop to an arbitrary index within its day (used by drag-to-reorder). */
+function reorderStop(day, fromIdx, toIdx) {
+  if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+  const arr = day.stops;
+  const [moved] = arr.splice(fromIdx, 1);
+  arr.splice(toIdx, 0, moved);
+  if (LIVE) {
+    Promise.all(arr.map((s, i) => sb.from("trip_stops").update({ position: i }).eq("id", s.id))).then(scheduleRefresh);
+    render();
+  } else persistLocal();
+}
+/* Pointer-based drag reorder from a card's grip handle; reflows the list live
+ * and works with both mouse and touch. */
+function makeDraggable(handle, s, day, container) {
+  handle.style.touchAction = "none";
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    let dragging = false;
+    const stops = () => [...container.querySelectorAll(".stop")];
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    const onMove = (ev) => {
+      if (!dragging) {
+        if (Math.abs(ev.clientY - startY) < 5) return;
+        dragging = true; s.classList.add("dragging");
+      }
+      const sibs = stops().filter(x => x !== s);
+      let target = null;
+      for (const sib of sibs) {
+        const r = sib.getBoundingClientRect();
+        if (ev.clientY < r.top + r.height / 2) { target = sib; break; }
+      }
+      if (target) container.insertBefore(s, target);
+      else if (sibs.length) sibs[sibs.length - 1].after(s);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      if (!dragging) return;
+      s.classList.remove("dragging");
+      const toIdx = stops().indexOf(s);
+      const fromIdx = day.stops.findIndex(st => st.id === s.dataset.stopId);
+      if (toIdx >= 0 && fromIdx >= 0) reorderStop(day, fromIdx, toIdx);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  });
+}
 
 /* ---------- go live: promote local trip to Supabase ---------- */
 async function goLive() {
@@ -2060,7 +2114,6 @@ function render() {
       s.dataset.stopId = stop.id;
       const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join("");
-      const want = fireCount(stop);
       const photo = stopPhoto(stop);
       const wiki = wikiInfo(stop);
       const detailLine = (stop.notes && stop.notes.trim()) || (wiki && wiki.desc) || "";
@@ -2076,7 +2129,6 @@ function render() {
           ${detailLine ? `<div class="detail"></div>` : ""}
           ${resBadgeHtml(stop)}
           <div class="acts">
-            <button data-op="want" class="want ${myVote(stop) ? "on" : ""}" title="${esc(voteNames(stop)) || "Add to the want-to-do list"}"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M12 3.4l2.5 5.5 6 .5-4.5 3.9 1.3 5.9-5.3-3.1-5.3 3.1 1.3-5.9L3.5 9.4l6-.5z"/></svg>${want ? `<span class="wc">${want}</span>` : ""}</button>
             <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
             <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Get directions in Google Maps"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.4"/></svg> Google Maps</a>
           </div>
@@ -2087,10 +2139,9 @@ function render() {
           </div>
         </div>
         <div class="ops">
+          <button class="drag-handle" title="Drag to reorder" aria-label="Drag to reorder"><svg viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></svg></button>
           ${hasMore ? `<button title="Details" data-op="more">⌄</button>` : ""}
           <button title="Edit" data-op="edit">✎</button>
-          <button title="Move up" data-op="up">↑</button>
-          <button title="Move down" data-op="down">↓</button>
         </div>`;
       s.querySelector(".name-text").textContent = stop.name;
       const dEl = s.querySelector(".detail"); if (dEl) dEl.textContent = detailLine;
@@ -2108,7 +2159,6 @@ function render() {
         m.hidden = !m.hidden;
         moreBtn.classList.toggle("open", !m.hidden);
       };
-      s.querySelector('[data-op=want]').onclick = () => setVote(stop, 1);
       s.querySelector('[data-op=visited]').onclick = (ev) => {
         const wasVisited = isVisited(stop);
         toggleVisited(stop);
@@ -2120,8 +2170,7 @@ function render() {
         }
       };
       s.querySelector('[data-op=edit]').onclick = () => openEdit(day, stop);
-      s.querySelector('[data-op=up]').onclick = () => moveStop(day, si, -1);
-      s.querySelector('[data-op=down]').onclick = () => moveStop(day, si, 1);
+      makeDraggable(s.querySelector(".drag-handle"), s, day, el);
       el.appendChild(s);
     });
 
