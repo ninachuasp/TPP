@@ -189,6 +189,17 @@
     border: 1.5px dashed var(--accent); background: transparent; color: var(--accent);
   }
   .cover-newtrip:hover { background: var(--accent-soft); }
+  .cover-profile {
+    display: flex; align-items: center; gap: 9px; width: 100%; margin: 12px 0 4px;
+    padding: 7px 12px 7px 7px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--panel); cursor: pointer; font: inherit; font-weight: 600; font-size: .82rem; color: var(--ink);
+  }
+  .cover-profile:hover { border-color: var(--accent); }
+  .cover-profile .trav-ava { width: 30px; height: 30px; font-size: 1rem; }
+  .cover-profile .cp-text { flex: 1; text-align: left; }
+  .cover-profile .cp-go { color: var(--muted); }
+  .cover-back { margin-top: 11px; background: none; border: none; color: var(--muted); cursor: pointer; font: inherit; font-size: .85rem; }
+  .cover-back:hover { color: var(--accent); }
   .hint { font-size: .72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
   .geo-results { margin-top: 6px; }
   .geo-results button {
@@ -649,8 +660,8 @@
       <circle cx="211" cy="57" r="5.5" fill="var(--pop)"/>
     </svg>
     <div class="cover-ticket" id="coverRegister" hidden>
-      <div class="cover-kicker">WELCOME TO PLONK!</div>
-      <div class="cover-title">Who's planning?</div>
+      <div class="cover-kicker" id="regKicker">WELCOME TO PLONK!</div>
+      <div class="cover-title" id="regTitle">Who's planning?</div>
       <div class="cover-meta">Add your name, then choose an emoji or upload a photo.</div>
       <div class="reg-row">
         <div id="regPreview" class="trav-ava"></div>
@@ -659,14 +670,21 @@
       <div class="trav-rep-btns" style="justify-content:center">
         <button type="button" id="regEmojiBtn">😀 Choose emoji</button>
         <button type="button" id="regPhotoBtn">📷 Upload photo</button>
+        <button type="button" id="regPhotoClear" hidden>Remove photo</button>
       </div>
       <div id="regEmojiGrid" class="ava-grid" hidden></div>
       <input type="file" id="regPhotoInput" accept="image/*" hidden>
       <button id="btnRegister" class="primary cover-enter">Continue →</button>
+      <button id="btnRegBack" class="cover-back" hidden>← Back to trips</button>
     </div>
     <div class="cover-ticket" id="coverTrips" hidden>
       <div class="cover-kicker">YOUR TRIPS</div>
       <div class="cover-title" style="font-size:1.35rem" id="coverHi">Pick a trip</div>
+      <button type="button" id="btnEditProfile" class="cover-profile">
+        <span id="coverProfileAva" class="trav-ava"></span>
+        <span class="cp-text">Edit your profile</span>
+        <span class="cp-go">✎</span>
+      </button>
       <div id="tripList" class="trip-list"></div>
       <button id="btnNewTrip" class="cover-newtrip">＋ Start a new trip</button>
     </div>
@@ -2913,6 +2931,8 @@ function renderTripList() {
     box.appendChild(card);
   });
   $("coverHi").textContent = userName ? "Hi " + userName + " — pick a trip" : "Pick a trip";
+  const photo = travellerPhoto(userName);
+  $("coverProfileAva").innerHTML = photo ? `<img src="${photo}" alt="">` : (userName ? avatar(userName) : "🙂");
 }
 function enterApp() {
   const c = $("cover");
@@ -2932,15 +2952,26 @@ function showCoverIfNew() {
   if (userName) coverStep("trips"); else { setupRegister(); coverStep("register"); }
   $("cover").classList.add("show");
 }
-/* --- registration step (name + emoji/photo) --- */
-let regPhotoPending = null;
+/* --- registration / profile step (name + emoji/photo) ---
+ * regPhotoPending: undefined = unchanged, null = cleared, string = new photo. */
+let regPhotoPending;
+let regEditing = false;
 function regPreviewRender() {
-  $("regPreview").innerHTML = regPhotoPending ? `<img src="${regPhotoPending}" alt="">` : ($("regEmojiGrid").dataset.pick || "🙂");
+  const photo = regPhotoPending !== undefined ? regPhotoPending : (userName ? travellerPhoto(userName) : null);
+  $("regPreview").innerHTML = photo ? `<img src="${photo}" alt="">` : ($("regEmojiGrid").dataset.pick || "🙂");
+  $("regPhotoClear").hidden = !photo;
 }
-function setupRegister() {
-  regPhotoPending = null;
+function setupRegister(editing) {
+  regEditing = !!editing;
+  regPhotoPending = undefined;
   $("regName").value = userName || "";
-  const grid = $("regEmojiGrid"); grid.hidden = true; grid.innerHTML = ""; grid.dataset.pick = "🦊";
+  $("regKicker").textContent = editing ? "YOUR PROFILE" : "WELCOME TO PLONK!";
+  $("regTitle").textContent = editing ? "Your profile" : "Who's planning?";
+  $("btnRegister").textContent = editing ? "Save →" : "Continue →";
+  $("btnRegBack").hidden = !editing;
+  const grid = $("regEmojiGrid"); grid.hidden = true; grid.innerHTML = "";
+  const v = avaVal(userName);
+  grid.dataset.pick = (typeof v === "string" ? v : (v && v.e)) || (userName ? avatar(userName) : "🦊");
   AVATAR_CHOICES.forEach(e => {
     const btn = document.createElement("button"); btn.type = "button"; btn.textContent = e;
     btn.className = "ava-choice" + (e === grid.dataset.pick ? " on" : "");
@@ -2951,6 +2982,7 @@ function setupRegister() {
 }
 $("regEmojiBtn").onclick = () => { const g = $("regEmojiGrid"); g.hidden = !g.hidden; };
 $("regPhotoBtn").onclick = () => $("regPhotoInput").click();
+$("regPhotoClear").onclick = () => { regPhotoPending = null; regPreviewRender(); };
 $("regPhotoInput").onchange = (e) => {
   const f = e.target.files && e.target.files[0]; if (!f) return;
   const img = new Image();
@@ -2963,13 +2995,15 @@ $("regPhotoInput").onchange = (e) => {
   };
   img.src = URL.createObjectURL(f); e.target.value = "";
 };
+$("btnRegBack").onclick = () => coverStep("trips");
+$("btnEditProfile").onclick = () => { setupRegister(true); coverStep("register"); };
 $("btnRegister").onclick = () => {
   const n = $("regName").value.trim();
   if (!n) { toast("Add your name to continue"); return; }
   userName = n; localStorage.setItem(NAME_KEY, userName);
   const patch = { n: userName };
   if ($("regEmojiGrid").dataset.pick) patch.e = $("regEmojiGrid").dataset.pick;
-  if (regPhotoPending) patch.p = regPhotoPending;
+  if (regPhotoPending !== undefined) patch.p = regPhotoPending;
   saveAvatarRec(userName, patch);
   coverStep("trips");
 };
