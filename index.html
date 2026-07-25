@@ -1547,7 +1547,7 @@ function openProfile() {
 let travPhotoPending;  // undefined = unchanged, null = cleared, string = new dataURL
 function travPreviewRender() {
   const emoji = $("travEmojiGrid").dataset.pick || avatar(userName) || "🙂";
-  const photo = travPhotoPending !== undefined ? travPhotoPending : travellerPhoto(userName);
+  const photo = travPhotoPending !== undefined ? travPhotoPending : profilePhoto(userName);
   $("travPreview").innerHTML = photo ? `<img src="${photo}" alt="">` : emoji;
   $("travPhotoClear").hidden = !photo;
 }
@@ -1560,8 +1560,7 @@ function openTravellers() {
   const meAdmin = isAdmin();
   if (!names.length) list.innerHTML = `<p class="hint">No travellers yet — add yourself below so the crew knows who's who.</p>`;
   names.forEach(key => {
-    const rec = chosenAvatars()[key];
-    const photo = (rec && typeof rec === "object") ? rec.p : null;
+    const photo = profilePhoto(travellerLabel(key));
     const card = document.createElement("div"); card.className = "trav-card";
     card.innerHTML =
       `<div class="trav-ava">${photo ? `<img src="${esc(photo)}" alt="">` : avatar(travellerLabel(key))}` +
@@ -2638,7 +2637,7 @@ function render() {
       const detailLine = (stop.notes && stop.notes.trim()) || (wiki && wiki.desc) || "";
       const hasMore = !!(links || (stop.notes && stop.notes.trim()));
       const adder = stop.addedBy && stop.addedBy !== "starter" ? stop.addedBy : "";
-      const adderPhoto = adder ? travellerPhoto(adder) : null;
+      const adderPhoto = adder ? profilePhoto(adder) : null;
       const adderAva = adder ? `<span class="added-by" title="Added by ${esc(adder)}">${adderPhoto ? `<img src="${esc(adderPhoto)}" alt="">` : avatar(adder)}</span>` : "";
       s.innerHTML = `
         <div class="stop-thumb" style="--dc:${color}" title="Show on map">
@@ -3483,7 +3482,7 @@ function setupRegister(editing) {
     grid.dataset.pick = "🦊";
     const ca = $("btnContinueAs");
     if (userName) {
-      const photo = travellerPhoto(userName);
+      const photo = profilePhoto(userName);
       ca.innerHTML = `<span class="ca-ava">${photo ? `<img src="${esc(photo)}" alt="">` : avatar(userName)}</span><span>Continue as ${esc(userName)}</span>`;
       ca.hidden = false;
     } else ca.hidden = true;
