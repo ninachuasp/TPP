@@ -117,6 +117,7 @@
     box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--pop) 70%, #000);
   }
   button.primary:hover { filter: brightness(1.05); color: var(--on-accent); }
+  button:disabled { opacity: .4; cursor: not-allowed; filter: none !important; }
   main { flex: 1; display: flex; min-height: 0; }
   #sidebar {
     width: 420px; max-width: 46vw; overflow-y: auto;
@@ -274,7 +275,16 @@
   .stop .name {
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     font-weight: 700; font-size: .95rem;
+    display: flex; align-items: center; gap: 6px;
   }
+  .stop .name .cat-badge { flex-shrink: 0; }
+  .stop .name .name-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .added-by {
+    flex-shrink: 0; width: 21px; height: 21px; border-radius: 50%; overflow: hidden;
+    display: inline-flex; align-items: center; justify-content: center; font-size: .82rem;
+    background: var(--accent-soft); box-shadow: 0 0 0 1px var(--line);
+  }
+  .added-by img { width: 100%; height: 100%; object-fit: cover; }
   .picon { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.15em; }
   .cat-badge { color: var(--accent); display: inline-flex; }
   .cat-badge .picon { width: 16px; height: 16px; }
@@ -1956,6 +1966,11 @@ function dayOptionsHtml() {
   }).join("");
 }
 
+/* enable "Add place" only once a place, a category and a day are all set */
+function updateAddSubmit() {
+  const ok = $("addInput").value.trim() && $("addCat").dataset.pick && $("addDay").value;
+  $("btnAddSubmit").disabled = !ok;
+}
 function openAdd() {
   $("addInput").value = "";
   $("geoResults").innerHTML = "";
@@ -1964,15 +1979,18 @@ function openAdd() {
     const b = document.createElement("button");
     b.type = "button"; b.className = "cat-choice";
     b.innerHTML = `${catSvg(key)}<small>${c.label}</small>`;
-    b.onclick = () => { cg.querySelectorAll(".cat-choice").forEach(x => x.classList.remove("on")); b.classList.add("on"); cg.dataset.pick = key; };
+    b.onclick = () => { cg.querySelectorAll(".cat-choice").forEach(x => x.classList.remove("on")); b.classList.add("on"); cg.dataset.pick = key; updateAddSubmit(); };
     cg.appendChild(b);
   });
   const sel = $("addDay"), prev = sel.value;
   sel.innerHTML = dayOptionsHtml();
   sel.value = [...sel.options].some(o => o.value === prev) ? prev : (trip.days[0] && trip.days[0].id) || "";
+  updateAddSubmit();
   $("addDialog").showModal();
   setTimeout(() => $("addInput").focus(), 40);
 }
+$("addInput").addEventListener("input", updateAddSubmit);
+$("addDay").addEventListener("change", updateAddSubmit);
 
 async function handleAdd() {
   const input = $("addInput");
@@ -2277,6 +2295,9 @@ function render() {
       const wiki = wikiInfo(stop);
       const detailLine = (stop.notes && stop.notes.trim()) || (wiki && wiki.desc) || "";
       const hasMore = !!(links || (stop.notes && stop.notes.trim()));
+      const adder = stop.addedBy && stop.addedBy !== "starter" ? stop.addedBy : "";
+      const adderPhoto = adder ? travellerPhoto(adder) : null;
+      const adderAva = adder ? `<span class="added-by" title="Added by ${esc(adder)}">${adderPhoto ? `<img src="${esc(adderPhoto)}" alt="">` : avatar(adder)}</span>` : "";
       s.innerHTML = `
         <div class="stop-thumb" style="--dc:${color}" title="Show on map">
           <span class="thumb-ico">${catIcon(stop)}</span>
@@ -2284,7 +2305,7 @@ function render() {
           <span class="stop-seq">${visited ? "✓" : si + 1}</span>
         </div>
         <div class="body">
-          <div class="name"><span class="cat-badge" title="${esc(CATEGORIES[getCategory(stop)].label)}">${catIcon(stop)}</span> <span class="name-text"></span></div>
+          <div class="name"><span class="cat-badge" title="${esc(CATEGORIES[getCategory(stop)].label)}">${catIcon(stop)}</span> <span class="name-text"></span>${adderAva}</div>
           ${detailLine ? `<div class="detail"></div>` : ""}
           ${resBadgeHtml(stop)}
           <div class="acts">
@@ -2947,9 +2968,10 @@ function coverStep(which) {
   if (which === "trips") renderTripList();
 }
 function showCoverIfNew() {
-  // Always land on the home cover when the app opens (register if new, else
-  // pick a trip) — consistent across desktop and phone.
-  if (userName) coverStep("trips"); else { setupRegister(); coverStep("register"); }
+  // Always open on the name step (pre-filled for returning users) so you can
+  // key in / confirm who you are before the "Hi <name>" trip picker.
+  setupRegister(false);
+  coverStep("register");
   $("cover").classList.add("show");
 }
 /* --- registration / profile step (name + emoji/photo) ---
@@ -2965,8 +2987,9 @@ function setupRegister(editing) {
   regEditing = !!editing;
   regPhotoPending = undefined;
   $("regName").value = userName || "";
-  $("regKicker").textContent = editing ? "YOUR PROFILE" : "WELCOME TO PLONK!";
-  $("regTitle").textContent = editing ? "Your profile" : "Who's planning?";
+  const returning = !editing && !!userName;
+  $("regKicker").textContent = editing ? "YOUR PROFILE" : (returning ? "WELCOME BACK" : "WELCOME TO PLONK!");
+  $("regTitle").textContent = editing ? "Your profile" : (returning ? "It's you, right?" : "Who's planning?");
   $("btnRegister").textContent = editing ? "Save →" : "Continue →";
   $("btnRegBack").hidden = !editing;
   const grid = $("regEmojiGrid"); grid.hidden = true; grid.innerHTML = "";
