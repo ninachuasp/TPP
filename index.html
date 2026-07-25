@@ -74,7 +74,9 @@
   header h1 input::placeholder { color: rgba(255,255,255,.6); }
   header h1 input:focus { outline: none; border-bottom-color: var(--nav-ink); }
   .who { font-size: .8rem; color: rgba(255,255,255,.75); }
-  .who b { color: var(--nav-ink); cursor: pointer; }
+  .who b { color: var(--nav-ink); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+  .who-ava { width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: inline-flex; flex: 0 0 auto; }
+  .who-ava img { width: 100%; height: 100%; object-fit: cover; }
   /* header buttons: light on the colored bar */
   header button, header .btn {
     background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.32); color: var(--nav-ink);
@@ -2331,7 +2333,12 @@ function dayColor(i) { return DAY_COLORS[i % DAY_COLORS.length]; }
 
 function render() {
   $("tripTitle").value = trip.title;
-  $("whoName").textContent = userName ? avatar(userName) + " " + userName : "set name & emoji";
+  if (userName) {
+    const wp = travellerPhoto(userName);
+    $("whoName").innerHTML = (wp ? `<span class="who-ava"><img src="${esc(wp)}" alt=""></span>` : `${avatar(userName)} `) + esc(userName);
+  } else {
+    $("whoName").textContent = "set name & photo";
+  }
 
   const daySel = $("addDay");
   const prevSel = daySel.value;
