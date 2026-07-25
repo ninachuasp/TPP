@@ -570,6 +570,7 @@
   .trav-admin-claim { width: 100%; margin: 12px 0 0; padding: 9px; border: 1px dashed var(--accent);
     border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-weight: 700; cursor: pointer; }
   .trav-admin-add { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+  .day-suggest-hint { margin: 6px 0 0; font-size: .76rem; font-weight: 600; color: var(--accent); }
   .trav-admin-add label { font-size: .78rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
   .trav-admin-tag, .trav-admin-add .trav-admin-tag { font-size: .56rem; font-weight: 800; color: var(--pop); letter-spacing: .1em;
     border: 1px solid var(--pop); border-radius: 5px; padding: 1px 4px; }
@@ -912,6 +913,7 @@
     <div id="addCat" class="catgrid"></div>
     <label>Which day?</label>
     <select id="addDay"></select>
+    <p id="daySuggestHint" class="day-suggest-hint" hidden></p>
     <p class="hint" style="margin-top:9px">Coordinates come from a Google Maps link or the search. Once it's added, tap the stop to attach Instagram / TikTok / booking links &amp; photos — they show up as chips on the stop and in its map pin.</p>
     <div class="actions">
       <button type="button" id="btnAddCancel">Cancel</button>
@@ -2226,6 +2228,42 @@ function updateAddSubmit() {
   const ok = $("addInput").value.trim() && $("addCat").dataset.pick && $("addDay").value;
   $("btnAddSubmit").disabled = !ok;
 }
+/* Which day fits a place best? The day with a stop closest to it. Days with no
+ * stops (or the ideas/wishlist day) can't be judged, so they're skipped. */
+function suggestDayId(lat, lng) {
+  let best = null, bestKm = Infinity;
+  trip.days.forEach(d => {
+    if (excludedDay(d)) return;
+    d.stops.forEach(s => {
+      const km = haversineKm([lat, lng], [s.lat, s.lng]);
+      if (km < bestKm) { bestKm = km; best = d.id; }
+    });
+  });
+  return best ? { id: best, km: bestKm } : null;
+}
+/* Human day label ("Day 3") for the picker/hint. */
+function dayNumberLabel(dayId) {
+  let dn = 0;
+  for (const d of trip.days) {
+    if (!excludedDay(d)) dn++;
+    if (d.id === dayId) return excludedDay(d) ? (d.title || "Ideas") : "Day " + dn;
+  }
+  return "";
+}
+let addDayTouched = false;
+/* Point the day picker at the closest day (unless the user already chose one). */
+function applyDaySuggestion(lat, lng) {
+  const hint = $("daySuggestHint");
+  if (addDayTouched || lat == null || lng == null) { hint.hidden = true; return; }
+  const s = suggestDayId(lat, lng);
+  const sel = $("addDay");
+  if (!s || ![...sel.options].some(o => o.value === s.id)) { hint.hidden = true; return; }
+  sel.value = s.id;
+  const near = s.km < 1 ? "right nearby" : "closest, ~" + Math.round(s.km) + " km";
+  hint.textContent = "✨ Suggested: " + dayNumberLabel(s.id) + " (" + near + ") — change it if you like";
+  hint.hidden = false;
+  updateAddSubmit();
+}
 let addPrefill = null;
 function openAdd(prefill) {
   addPrefill = prefill || null;
@@ -2243,12 +2281,16 @@ function openAdd(prefill) {
   const sel = $("addDay"), prev = sel.value;
   sel.innerHTML = dayOptionsHtml();
   sel.value = [...sel.options].some(o => o.value === prev) ? prev : (trip.days[0] && trip.days[0].id) || "";
+  addDayTouched = false;
+  $("daySuggestHint").hidden = true;
   updateAddSubmit();
+  // A place discovered on the map already has coords — suggest its best day.
+  if (prefill && prefill.lat != null) applyDaySuggestion(prefill.lat, prefill.lng);
   $("addDialog").showModal();
   setTimeout(() => $("addInput").focus(), 40);
 }
 $("addInput").addEventListener("input", updateAddSubmit);
-$("addDay").addEventListener("change", updateAddSubmit);
+$("addDay").addEventListener("change", () => { addDayTouched = true; $("daySuggestHint").hidden = true; updateAddSubmit(); });
 
 async function handleAdd() {
   const input = $("addInput");
@@ -2307,7 +2349,13 @@ async function handleAdd() {
     await geocodeSearch(text, dayId);
     return;
   }
-  addStopM(dayId, { name, ...coords, links: [...links, ...addCatLinks()] });
+  // If the user didn't hand-pick a day, drop it on the closest one.
+  let targetDay = dayId;
+  if (!addDayTouched) {
+    const s = suggestDayId(coords.lat, coords.lng);
+    if (s) { targetDay = s.id; toast("Added to " + dayNumberLabel(s.id) + " — the closest day. Drag it if you'd rather move it."); }
+  }
+  addStopM(targetDay, { name, ...coords, links: [...links, ...addCatLinks()] });
   input.value = "";
   $("addDialog").close();
 }
@@ -2330,10 +2378,14 @@ async function geocodeSearch(query, dayId) {
       const b = document.createElement("button");
       b.textContent = "📍 " + r.display_name;
       b.onclick = () => {
-        addStopM(dayId, { name: query, lat: +r.lat, lng: +r.lon, links: addCatLinks() });
-        $("addInput").value = "";
+        // Now that we know where it is, suggest the day that fits best and let
+        // the user confirm (or change it) before adding.
+        addPrefill = { name: query, lat: +r.lat, lng: +r.lon, cat: $("addCat").dataset.pick || undefined };
+        $("addInput").value = query;
         box.innerHTML = "";
-        $("addDialog").close();
+        applyDaySuggestion(+r.lat, +r.lon);
+        updateAddSubmit();
+        toast("Pick the day (we suggested one) then tap Add place");
       };
       box.appendChild(b);
     });
