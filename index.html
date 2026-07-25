@@ -2097,9 +2097,9 @@ function render() {
       const nEl = s.querySelector(".stop-more .notes"); if (nEl) nEl.textContent = stop.notes;
       const panMap = (ev) => {
         if (ev.target.tagName === "A" || ev.target.tagName === "BUTTON" || ev.target.closest("button, a")) return;
-        map.setView([stop.lat, stop.lng], 13);
+        showStopOnMap(stop);
       };
-      s.querySelector(".stop-thumb").onclick = () => map.setView([stop.lat, stop.lng], 13);
+      s.querySelector(".stop-thumb").onclick = () => showStopOnMap(stop);
       s.querySelector(".name").style.cursor = "pointer";
       s.querySelector(".name").onclick = panMap;
       const moreBtn = s.querySelector('[data-op=more]');
@@ -2152,8 +2152,21 @@ function render() {
   refreshWeather();
 }
 
+let stopMarkers = {};
+/* Pan the map to a stop and open its named popup (switches to the map tab on
+ * mobile so the label is actually visible). */
+function showStopOnMap(stop) {
+  const open = () => {
+    map.setView([stop.lat, stop.lng], Math.max(map.getZoom(), 13));
+    const m = stopMarkers[stop.id];
+    if (m) m.openPopup();
+  };
+  if (mobileMq.matches) { setMtab("map"); setTimeout(open, 130); } else open();
+}
+
 function renderMap() {
   layerGroup.clearLayers();
+  stopMarkers = {};
   const allPts = [];
   trip.days.forEach((day, di) => {
     const color = dayColor(di);
@@ -2176,6 +2189,7 @@ function renderMap() {
           (links ? "<br>" + links : "") +
           (stop.notes ? `<br><i>${esc(stop.notes)}</i>` : ""));
       layerGroup.addLayer(marker);
+      stopMarkers[stop.id] = marker;
       pts.push([stop.lat, stop.lng]);
       allPts.push([stop.lat, stop.lng]);
     });
