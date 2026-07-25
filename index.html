@@ -369,6 +369,11 @@
   .stop .ops button.drag-handle:hover { color: var(--accent); }
   .stop .ops button.drag-handle:active { cursor: grabbing; }
   .stop.dragging { background: var(--accent-soft); border-radius: 12px; box-shadow: 0 10px 26px -10px rgba(0,0,0,.4); position: relative; z-index: 6; }
+  .day-grip { cursor: grab; color: var(--muted); touch-action: none; padding: 2px 4px; background: none; border: 0; display: inline-flex; align-items: center; }
+  .day-grip:hover { color: var(--accent); }
+  .day-grip:active { cursor: grabbing; }
+  .day.day-dragging { box-shadow: 0 14px 34px -12px rgba(0,0,0,.45); position: relative; z-index: 7; opacity: .92; }
+  #days.reordering .day-divider { opacity: 0; }
   .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
   .day-stay {
     display: flex; align-items: center; gap: 7px; cursor: pointer;
@@ -1982,6 +1987,53 @@ function makeDraggable(handle, s) {
     window.addEventListener("pointercancel", onUp);
   });
 }
+/* Reorder whole days: pull the day out and drop it at toIdx. */
+function moveDayTo(dayId, toIdx) {
+  const from = trip.days.findIndex(d => d.id === dayId);
+  if (from < 0) return;
+  const [moved] = trip.days.splice(from, 1);
+  const clamped = Math.max(0, Math.min(toIdx, trip.days.length));
+  trip.days.splice(clamped, 0, moved);
+  if (LIVE) {
+    render();
+    Promise.all(trip.days.map((d, i) => sb.from("trip_days").update({ position: i }).eq("id", d.id)))
+      .then(scheduleRefresh);
+  } else persistLocal();
+}
+/* Pointer-based drag from a day's grip; reorders the whole day among the others. */
+function makeDayDraggable(handle, dayEl) {
+  handle.style.touchAction = "none";
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    let dragging = false;
+    const container = document.getElementById("days");
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    const onMove = (ev) => {
+      if (!dragging) {
+        if (Math.abs(ev.clientY - startY) < 5) return;
+        dragging = true; dayEl.classList.add("day-dragging"); container.classList.add("reordering");
+      }
+      const others = [...container.querySelectorAll(".day")].filter(d => d !== dayEl);
+      const ref = others.find(d => { const r = d.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
+      if (ref) container.insertBefore(dayEl, ref);
+      else container.appendChild(dayEl);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      if (!dragging) return;
+      dayEl.classList.remove("day-dragging"); container.classList.remove("reordering");
+      const toIdx = [...container.querySelectorAll(".day")].indexOf(dayEl);
+      moveDayTo(dayEl.dataset.dayId, toIdx);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  });
+}
 
 /* ---------- go live: promote local trip to Supabase ---------- */
 async function goLive() {
@@ -2308,6 +2360,10 @@ function render() {
 
     // ---- top row: the day & date as the headline ----
     const top = document.createElement("div"); top.className = "day-toprow";
+    const grip = document.createElement("button");
+    grip.className = "day-grip"; grip.title = "Drag to reorder day"; grip.setAttribute("aria-label", "Drag to reorder day");
+    grip.innerHTML = `<svg viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></svg>`;
+    top.appendChild(grip);
     const chev = document.createElement("button");
     chev.className = "chev"; chev.textContent = isCollapsed ? "▸" : "▾";
     chev.title = isCollapsed ? "Expand day" : "Collapse day";
@@ -2367,6 +2423,7 @@ function render() {
       head.appendChild(bot);
     }
     el.appendChild(head);
+    makeDayDraggable(grip, el);
 
     if (isCollapsed) {
       const c = document.createElement("div");
