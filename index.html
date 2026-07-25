@@ -435,6 +435,26 @@
   .ava-choice:hover { border-color: var(--accent); }
   .ava-choice.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
   @media (max-width: 760px) { #avatarGrid { grid-template-columns: repeat(6, 1fr); } }
+  /* ---- travellers ---- */
+  .trav-list { display: flex; flex-wrap: wrap; gap: 12px 10px; margin: 6px 0 4px; }
+  .trav-list .hint { margin: 2px 0; }
+  .trav-card { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 66px; }
+  .trav-ava {
+    width: 52px; height: 52px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 1.55rem;
+    background: var(--accent-soft); box-shadow: 0 0 0 1px var(--line);
+  }
+  .trav-ava img { width: 100%; height: 100%; object-fit: cover; }
+  .trav-name { font-size: .74rem; text-align: center; max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trav-you-tag { font-size: .58rem; font-weight: 800; color: var(--pop); letter-spacing: .1em; }
+  .trav-you { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+  .trav-editrow { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .trav-editrow #travPreview { width: 46px; height: 46px; font-size: 1.4rem; }
+  .trav-editrow input { flex: 1; min-width: 0; }
+  .trav-rep-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .trav-rep-btns button { font-size: .78rem; }
+  .ava-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 8px; }
+  @media (max-width: 760px) { .ava-grid { grid-template-columns: repeat(6, 1fr); } }
   .tripometer {
     font-size: .72rem; font-weight: 700; color: var(--accent);
     background: var(--accent-soft); border-radius: 20px; padding: 3px 10px;
@@ -652,6 +672,7 @@
   <button id="btnShare" class="primary">🔗 Share trip link</button>
   <button id="btnMore" title="More">⋯</button>
   <div id="moreMenu">
+    <button id="btnTravellers">👥 Travellers</button>
     <button id="btnExport">⬇ Export JSON</button>
     <button id="btnImport">⬆ Import</button>
     <button id="btnPrint">🖨 Itinerary</button>
@@ -770,6 +791,29 @@
       <button type="submit" class="primary">Save</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="travellersDialog">
+  <h3>👥 Travellers</h3>
+  <div id="travellersList" class="trav-list"></div>
+  <div class="trav-you">
+    <label>You</label>
+    <div class="trav-editrow">
+      <div id="travPreview" class="trav-ava"></div>
+      <input id="travName" placeholder="your name" autocomplete="off">
+    </div>
+    <div class="trav-rep-btns">
+      <button type="button" id="travEmojiBtn">😀 Choose emoji</button>
+      <button type="button" id="travPhotoBtn">📷 Upload photo</button>
+      <button type="button" id="travPhotoClear" hidden>Remove photo</button>
+    </div>
+    <div id="travEmojiGrid" class="ava-grid" hidden></div>
+    <input type="file" id="travPhotoInput" accept="image/*" hidden>
+  </div>
+  <div class="actions">
+    <button type="button" id="travClose">Close</button>
+    <button type="button" class="primary" id="travSave">Save</button>
+  </div>
 </dialog>
 
 <dialog id="backupDialog">
@@ -1209,28 +1253,45 @@ const avatarsKey = () => "tpp.avatars." + (LIVE ? LIVE_TRIP_ID : "local");
 let localAvatars = {};
 try { localAvatars = JSON.parse(localStorage.getItem(avatarsKey()) || "{}"); } catch (e) {}
 const chosenAvatars = () => (AVA_SYNC && trip && trip.avatars) ? trip.avatars : localAvatars;
+/* A traveller's stored value is either a legacy emoji string or a record
+ * { e: emoji, p: photoDataURL, n: displayName }. */
+const avaVal = name => chosenAvatars()[String(name || "").trim().toLowerCase()];
 function avatar(name) {
   if (!name) return "";
-  const key = name.trim().toLowerCase();
-  const chosen = chosenAvatars()[key];
-  if (chosen) return chosen;
+  const v = avaVal(name);
+  const e = typeof v === "string" ? v : (v && v.e);
+  if (e) return e;
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return AVATARS[h % AVATARS.length];
 }
-function setAvatar(name, emoji) {
-  const key = name.trim().toLowerCase();
+const travellerPhoto = name => { const v = avaVal(name); return (v && typeof v === "object" && v.p) ? v.p : null; };
+const travellerLabel = key => { const v = chosenAvatars()[key]; return (v && typeof v === "object" && v.n) || key.charAt(0).toUpperCase() + key.slice(1); };
+/* Everyone who has a saved record, plus you. */
+function travellerNames() {
+  const s = new Set(Object.keys(chosenAvatars()));
+  if (userName) s.add(userName.trim().toLowerCase());
+  return [...s];
+}
+/* Merge a patch ({e}, {p}, {n}) into a traveller's record and persist. */
+function saveAvatarRec(name, patch) {
+  const key = String(name || "").trim().toLowerCase();
   if (!key) return;
+  const cur = chosenAvatars()[key];
+  const rec = (cur && typeof cur === "object") ? { ...cur } : (cur ? { e: cur } : {});
+  Object.assign(rec, patch);
+  if (rec.p === null) delete rec.p;
   if (LIVE && AVA_SYNC) {
     const map = { ...(trip.avatars || {}) };
-    map[key] = emoji; trip.avatars = map; render();
+    map[key] = rec; trip.avatars = map; render();
     dbTry(sb.from("trip_trips").update({ avatars: map }).eq("id", LIVE_TRIP_ID));
   } else {
-    localAvatars[key] = emoji;
+    localAvatars[key] = rec;
     localStorage.setItem(avatarsKey(), JSON.stringify(localAvatars));
     render();
   }
 }
+function setAvatar(name, emoji) { saveAvatarRec(name, { e: emoji, n: name }); }
 
 const AVATAR_CHOICES = [
   "🦊","🐻","🐧","🦉","🐯","🦌","🐙","🐬","🦜","🐢","🐰","🐨",
@@ -1255,6 +1316,49 @@ function openProfile() {
   });
   grid.dataset.pick = current;
   $("profileDialog").showModal();
+}
+
+/* ---------- travellers section ---------- */
+let travPhotoPending;  // undefined = unchanged, null = cleared, string = new dataURL
+function travPreviewRender() {
+  const emoji = $("travEmojiGrid").dataset.pick || avatar(userName) || "🙂";
+  const photo = travPhotoPending !== undefined ? travPhotoPending : travellerPhoto(userName);
+  $("travPreview").innerHTML = photo ? `<img src="${photo}" alt="">` : emoji;
+  $("travPhotoClear").hidden = !photo;
+}
+function openTravellers() {
+  travPhotoPending = undefined;
+  const meKey = (userName || "").trim().toLowerCase();
+  const list = $("travellersList"); list.innerHTML = "";
+  const names = travellerNames();
+  if (!names.length) list.innerHTML = `<p class="hint">No travellers yet — add yourself below so the crew knows who's who.</p>`;
+  names.forEach(key => {
+    const rec = chosenAvatars()[key];
+    const photo = (rec && typeof rec === "object") ? rec.p : null;
+    const card = document.createElement("div"); card.className = "trav-card";
+    card.innerHTML =
+      `<div class="trav-ava">${photo ? `<img src="${photo}" alt="">` : avatar(travellerLabel(key))}</div>` +
+      `<div class="trav-name">${esc(travellerLabel(key))}</div>` +
+      (key === meKey ? `<div class="trav-you-tag">YOU</div>` : "");
+    list.appendChild(card);
+  });
+  $("travName").value = userName || "";
+  const grid = $("travEmojiGrid"); grid.hidden = true; grid.innerHTML = "";
+  const v = avaVal(userName);
+  grid.dataset.pick = (typeof v === "string" ? v : (v && v.e)) || avatar(userName) || "🦊";
+  AVATAR_CHOICES.forEach(e => {
+    const btn = document.createElement("button"); btn.type = "button"; btn.textContent = e;
+    btn.className = "ava-choice" + (e === grid.dataset.pick ? " on" : "");
+    btn.onclick = () => {
+      grid.querySelectorAll(".ava-choice").forEach(x => x.classList.remove("on"));
+      btn.classList.add("on"); grid.dataset.pick = e;
+      travPhotoPending = null;  // picking an emoji clears the photo
+      travPreviewRender();
+    };
+    grid.appendChild(btn);
+  });
+  travPreviewRender();
+  $("travellersDialog").showModal();
 }
 
 function tripDates() {
@@ -2678,7 +2782,39 @@ $("btnAddCancel").onclick = () => $("addDialog").close();
 $("addForm").onsubmit = (e) => { e.preventDefault(); handleAdd(); };
 $("addInput").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } };
 $("btnAddDay").onclick = addDayM;
-$("whoName").onclick = openProfile;
+$("whoName").onclick = openTravellers;
+$("btnTravellers").onclick = () => { document.body.classList.remove("more-open"); openTravellers(); };
+$("travClose").onclick = () => $("travellersDialog").close();
+$("travEmojiBtn").onclick = () => { const g = $("travEmojiGrid"); g.hidden = !g.hidden; };
+$("travPhotoBtn").onclick = () => $("travPhotoInput").click();
+$("travPhotoClear").onclick = () => { travPhotoPending = null; travPreviewRender(); };
+$("travPhotoInput").onchange = (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    const S = 220, side = Math.min(img.width, img.height);
+    const c = document.createElement("canvas"); c.width = S; c.height = S;
+    c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
+    travPhotoPending = c.toDataURL("image/jpeg", 0.82);
+    travPreviewRender();
+    URL.revokeObjectURL(img.src);
+  };
+  img.onerror = () => toast("Couldn't read that image");
+  img.src = URL.createObjectURL(f);
+  e.target.value = "";
+};
+$("travSave").onclick = () => {
+  const newName = $("travName").value.trim();
+  if (newName) { userName = newName; localStorage.setItem(NAME_KEY, userName); }
+  if (userName) {
+    const patch = { n: userName };
+    if ($("travEmojiGrid").dataset.pick) patch.e = $("travEmojiGrid").dataset.pick;
+    if (travPhotoPending !== undefined) patch.p = travPhotoPending;
+    saveAvatarRec(userName, patch);
+  }
+  $("travellersDialog").close();
+  render();
+};
 $("btnStayCancel").onclick = () => $("stayDialog").close();
 $("stayForm").onsubmit = () => {
   if (editingStay) setDayLodging(editingStay, packLodging($("stayName").value, $("stayUrl").value));
