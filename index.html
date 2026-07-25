@@ -1485,6 +1485,19 @@ function setTripAdmin(name) {
     render();
   }
 }
+/* Shrink a picked image to a square avatar data-URL. */
+function compressToAvatar(file, cb) {
+  const img = new Image();
+  img.onload = () => {
+    const S = 220, side = Math.min(img.width, img.height);
+    const c = document.createElement("canvas"); c.width = S; c.height = S;
+    c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
+    cb(c.toDataURL("image/jpeg", 0.82));
+    URL.revokeObjectURL(img.src);
+  };
+  img.onerror = () => toast("Couldn't read that image");
+  img.src = URL.createObjectURL(file);
+}
 /* Admin-only: drop a traveller from the shared crew. */
 function removeTraveller(key) {
   key = String(key || "").trim().toLowerCase();
@@ -1545,6 +1558,7 @@ function openProfile() {
 
 /* ---------- travellers section ---------- */
 let travPhotoPending;  // undefined = unchanged, null = cleared, string = new dataURL
+let addTravPhoto = null, addTravEmoji = "";  // admin "add a traveller" pending photo/emoji
 function travPreviewRender() {
   const emoji = $("travEmojiGrid").dataset.pick || avatar(userName) || "🙂";
   const photo = travPhotoPending !== undefined ? travPhotoPending : profilePhoto(userName);
@@ -1584,16 +1598,51 @@ function openTravellers() {
   } else if (meAdmin) {
     ab.innerHTML =
       `<div class="trav-admin-add"><label>Add a traveller <span class="trav-admin-tag">ADMIN</span></label>` +
-      `<div class="trav-editrow"><input id="travAddName" placeholder="their name" autocomplete="off">` +
-      `<button type="button" class="primary" id="travAddBtn">Add</button></div></div>`;
+      `<div class="trav-editrow"><div id="travAddPreview" class="trav-ava"></div>` +
+      `<input id="travAddName" placeholder="their name" autocomplete="off"></div>` +
+      `<div class="trav-rep-btns">` +
+      `<button type="button" id="travAddEmojiBtn">😀 Choose emoji</button>` +
+      `<button type="button" id="travAddPhotoBtn">📷 Upload photo</button>` +
+      `<button type="button" id="travAddPhotoClear" hidden>Remove photo</button>` +
+      `<button type="button" class="primary" id="travAddBtn">Add</button></div>` +
+      `<div id="travAddEmojiGrid" class="ava-grid" hidden></div>` +
+      `<input type="file" id="travAddPhotoInput" accept="image/*" hidden></div>`;
+    addTravPhoto = null; addTravEmoji = "";
+    const renderAddPreview = () => {
+      const nm = $("travAddName").value.trim();
+      const emoji = addTravEmoji || (nm ? avatar(nm) : "🙂");
+      $("travAddPreview").innerHTML = addTravPhoto ? `<img src="${esc(addTravPhoto)}" alt="">` : emoji;
+      $("travAddPhotoClear").hidden = !addTravPhoto;
+    };
+    $("travAddName").oninput = renderAddPreview;
+    const eg = $("travAddEmojiGrid");
+    AVATAR_CHOICES.forEach(e => {
+      const btn = document.createElement("button"); btn.type = "button"; btn.textContent = e;
+      btn.className = "ava-choice";
+      btn.onclick = () => {
+        eg.querySelectorAll(".ava-choice").forEach(x => x.classList.remove("on"));
+        btn.classList.add("on"); addTravEmoji = e; addTravPhoto = null; renderAddPreview();
+      };
+      eg.appendChild(btn);
+    });
+    $("travAddEmojiBtn").onclick = () => { eg.hidden = !eg.hidden; };
+    $("travAddPhotoBtn").onclick = () => $("travAddPhotoInput").click();
+    $("travAddPhotoClear").onclick = () => { addTravPhoto = null; renderAddPreview(); };
+    $("travAddPhotoInput").onchange = (e) => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      compressToAvatar(f, url => { addTravPhoto = url; renderAddPreview(); });
+      e.target.value = "";
+    };
     $("travAddBtn").onclick = () => {
       const nm = $("travAddName").value.trim();
       if (!nm) { toast("Type a name to add"); return; }
-      saveAvatarRec(nm, { n: nm, e: avatar(nm) });
-      $("travAddName").value = "";
+      const patch = { n: nm, e: addTravEmoji || avatar(nm) };
+      if (addTravPhoto) patch.p = addTravPhoto;
+      saveAvatarRec(nm, patch);
       openTravellers();
       toast(`Added ${nm} to the crew`);
     };
+    renderAddPreview();
   }
   $("travName").value = userName || "";
   const grid = $("travEmojiGrid"); grid.hidden = true; grid.innerHTML = "";
