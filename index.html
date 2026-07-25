@@ -371,6 +371,12 @@
   .stop .ops button.drag-handle:hover { color: var(--accent); }
   .stop .ops button.drag-handle:active { cursor: grabbing; }
   .stop.dragging { background: var(--accent-soft); border-radius: 12px; box-shadow: 0 10px 26px -10px rgba(0,0,0,.4); position: relative; z-index: 6; }
+  .area-label { display: none; font-weight: 800; font-size: 12px; line-height: 1;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; letter-spacing: .3px;
+    color: #1f2a5a; white-space: nowrap; text-align: center;
+    text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 1px 2px rgba(255,255,255,.9); opacity: .78; }
+  #map.show-areas .area-label { display: inline-block; }
+  body.night .area-label { color: #cdd6ff; text-shadow: 0 0 3px #0b1020, 0 0 4px #0b1020; }
   .day-grip { cursor: grab; color: var(--muted); touch-action: none; padding: 2px 4px; background: none; border: 0; display: inline-flex; align-items: center; }
   .day-grip:hover { color: var(--accent); }
   .day-grip:active { cursor: grabbing; }
@@ -2336,6 +2342,27 @@ const BASEMAPS = {
   night: { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" },
   day: { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" },
 };
+/* Big-picture orientation: the main Hokkaidō areas, labelled softly so you can
+ * see where a trip sits in the region. Shown only when the trip is in Hokkaidō
+ * and the map is zoomed out enough to read them (see maybeAreaLabels). */
+const HOKKAIDO_BBOX = { s: 41.2, w: 139.2, n: 45.7, e: 146.1 };
+const HOKKAIDO_AREAS = [
+  { n: "Sapporo", lat: 43.062, lng: 141.354 },
+  { n: "Otaru", lat: 43.191, lng: 140.995 },
+  { n: "Niseko", lat: 42.805, lng: 140.687 },
+  { n: "Noboribetsu", lat: 42.413, lng: 141.108 },
+  { n: "Lake Tōya", lat: 42.600, lng: 140.855 },
+  { n: "Hakodate", lat: 41.768, lng: 140.729 },
+  { n: "Furano", lat: 43.342, lng: 142.383 },
+  { n: "Biei", lat: 43.588, lng: 142.466 },
+  { n: "Asahikawa", lat: 43.771, lng: 142.365 },
+  { n: "Sōunkyō", lat: 43.727, lng: 143.032 },
+  { n: "Obihiro", lat: 42.924, lng: 143.196 },
+  { n: "Kushiro", lat: 42.985, lng: 144.382 },
+  { n: "Shiretoko", lat: 44.070, lng: 145.043 },
+  { n: "Wakkanai", lat: 45.416, lng: 141.673 },
+];
+const inHokkaido = (lat, lng) => lat >= HOKKAIDO_BBOX.s && lat <= HOKKAIDO_BBOX.n && lng >= HOKKAIDO_BBOX.w && lng <= HOKKAIDO_BBOX.e;
 let basemap = "day";
 function setBasemap(mode) {
   basemap = mode;
@@ -2580,6 +2607,14 @@ function renderMap() {
   layerGroup.clearLayers();
   stopMarkers = {};
   const allPts = [];
+  // Region orientation labels (only if this trip is in Hokkaidō).
+  if (trip.days.some(d => d.stops.some(s => inHokkaido(s.lat, s.lng)))) {
+    HOKKAIDO_AREAS.forEach(a => {
+      const icon = L.divIcon({ className: "area-label-wrap",
+        html: `<span class="area-label">${esc(a.n)}</span>`, iconSize: [90, 16], iconAnchor: [45, 8] });
+      layerGroup.addLayer(L.marker([a.lat, a.lng], { icon, interactive: false, keyboard: false, zIndexOffset: -1000 }));
+    });
+  }
   trip.days.forEach((day, di) => {
     const color = dayColor(di);
     const pts = [];
@@ -2618,7 +2653,14 @@ function renderMap() {
       }
     }
   });
-  if (allPts.length && !map._userMoved) map.fitBounds(allPts, { padding: [40, 40] });
+  if (allPts.length && !map._userMoved) map.fitBounds(allPts, { padding: [50, 50], maxZoom: 11 });
+  updateAreaLabels();
+}
+/* Area labels are for the big picture — hide them once you zoom into a town so
+ * they don't clutter the stops. */
+function updateAreaLabels() {
+  if (!map) return;
+  document.getElementById("map").classList.toggle("show-areas", map.getZoom() <= 9);
 }
 
 /* ---------- discover nearby places (OpenStreetMap / Overpass) ---------- */
@@ -3380,6 +3422,7 @@ async function boot() {
   $("mapMark").innerHTML = pinMark();
   map = L.map("map", { zoomControl: true }).setView([43.06, 141.35], 8);
   map.on("dragstart zoomstart", () => { map._userMoved = true; });
+  map.on("zoomend", updateAreaLabels);
   setBasemap(theme === "dark" ? "night" : "day");
   layerGroup = L.layerGroup().addTo(map);
   if (mobileMq.matches) setMtab("plan");
