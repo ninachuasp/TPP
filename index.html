@@ -1789,16 +1789,6 @@ function removeDay(day) {
   toast(`Removed "${day.title}"`, { label: "Undo", fn: undo });
 }
 
-function moveDay(di, delta) {
-  const dj = di + delta;
-  if (dj < 0 || dj >= trip.days.length) return;
-  [trip.days[di], trip.days[dj]] = [trip.days[dj], trip.days[di]];
-  if (LIVE) {
-    render();
-    Promise.all(trip.days.map((d, i) => sb.from("trip_days").update({ position: i }).eq("id", d.id)))
-      .then(scheduleRefresh);
-  } else persistLocal();
-}
 function addStopM(dayId, { name, lat, lng, links }) {
   const day = trip.days.find(d => d.id === dayId) || trip.days[trip.days.length - 1];
   if (LIVE) {
@@ -2353,14 +2343,6 @@ function render() {
     dateBtn.title = iso ? "Date: " + iso : "Set this day's date";
     dateBtn.onclick = () => promptDayDate(day);
     top.appendChild(dateBtn);
-    const upBtn = document.createElement("button");
-    upBtn.className = "mini"; upBtn.textContent = "↑"; upBtn.title = "Move day up";
-    upBtn.onclick = () => moveDay(di, -1);
-    top.appendChild(upBtn);
-    const dnBtn = document.createElement("button");
-    dnBtn.className = "mini"; dnBtn.textContent = "↓"; dnBtn.title = "Move day down";
-    dnBtn.onclick = () => moveDay(di, 1);
-    top.appendChild(dnBtn);
     const delBtn = document.createElement("button");
     delBtn.className = "mini"; delBtn.textContent = "✕"; delBtn.title = "Remove day";
     delBtn.onclick = () => {
