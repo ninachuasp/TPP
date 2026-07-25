@@ -117,6 +117,7 @@
     box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--pop) 70%, #000);
   }
   button.primary:hover { filter: brightness(1.05); color: var(--on-accent); }
+  button:disabled { opacity: .4; cursor: not-allowed; filter: none !important; }
   main { flex: 1; display: flex; min-height: 0; }
   #sidebar {
     width: 420px; max-width: 46vw; overflow-y: auto;
@@ -274,7 +275,16 @@
   .stop .name {
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     font-weight: 700; font-size: .95rem;
+    display: flex; align-items: center; gap: 6px;
   }
+  .stop .name .cat-badge { flex-shrink: 0; }
+  .stop .name .name-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .added-by {
+    flex-shrink: 0; width: 21px; height: 21px; border-radius: 50%; overflow: hidden;
+    display: inline-flex; align-items: center; justify-content: center; font-size: .82rem;
+    background: var(--accent-soft); box-shadow: 0 0 0 1px var(--line);
+  }
+  .added-by img { width: 100%; height: 100%; object-fit: cover; }
   .picon { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.15em; }
   .cat-badge { color: var(--accent); display: inline-flex; }
   .cat-badge .picon { width: 16px; height: 16px; }
@@ -381,6 +391,31 @@
   }
   body.night .map-brand { background: #1c2130; border-color: #313a4e; }
   body.night .map-brand b { color: #e8e8ef; }
+  #btnDiscover {
+    position: absolute; top: 12px; right: 12px; z-index: 1000;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 20px; padding: 7px 13px; font: inherit; font-size: .8rem; font-weight: 700;
+    cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.15);
+  }
+  #btnDiscover.on { background: var(--pop); color: var(--on-accent); border-color: var(--pop); }
+  #discoverHint {
+    position: absolute; top: 52px; right: 12px; z-index: 1000; max-width: 220px;
+    background: var(--panel); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 10px; padding: 7px 11px; font-size: .74rem; display: none; box-shadow: 0 2px 10px rgba(0,0,0,.12);
+  }
+  #discoverHint.show { display: block; }
+  .poi-marker {
+    width: 16px; height: 16px; border-radius: 50%; background: var(--pop);
+    border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--on-accent); font-size: 12px; font-weight: 800; line-height: 1;
+  }
+  .poi-pop b { font-size: .9rem; }
+  .poi-pop .poi-cat { color: var(--muted); font-size: .76rem; text-transform: capitalize; }
+  .poi-pop button {
+    margin-top: 7px; width: 100%; border: none; background: var(--accent); color: #fff;
+    border-radius: 8px; padding: 6px 10px; font-weight: 700; cursor: pointer; font-size: .8rem;
+  }
 
   .brand { display: flex; align-items: center; gap: 11px; }
   .brand .logo { height: 34px; width: auto; display: block; }
@@ -750,6 +785,8 @@
   </div>
   <div id="map">
     <div class="map-brand"><span id="mapMark"></span><b>Plonk</b></div>
+    <button id="btnDiscover" title="Find nearby places to add">✦ Discover nearby</button>
+    <div id="discoverHint"></div>
   </div>
   <div id="quest">
     <div id="questSvgHost"></div>
@@ -1956,29 +1993,46 @@ function dayOptionsHtml() {
   }).join("");
 }
 
-function openAdd() {
-  $("addInput").value = "";
+/* enable "Add place" only once a place, a category and a day are all set */
+function updateAddSubmit() {
+  const ok = $("addInput").value.trim() && $("addCat").dataset.pick && $("addDay").value;
+  $("btnAddSubmit").disabled = !ok;
+}
+let addPrefill = null;
+function openAdd(prefill) {
+  addPrefill = prefill || null;
+  $("addInput").value = prefill ? prefill.name : "";
   $("geoResults").innerHTML = "";
-  const cg = $("addCat"); cg.innerHTML = ""; cg.dataset.pick = "";
+  const cg = $("addCat"); cg.innerHTML = ""; cg.dataset.pick = (prefill && prefill.cat) || "";
   Object.entries(CATEGORIES).forEach(([key, c]) => {
     const b = document.createElement("button");
-    b.type = "button"; b.className = "cat-choice";
+    b.type = "button"; b.className = "cat-choice" + (cg.dataset.pick === key ? " on" : "");
     b.innerHTML = `${catSvg(key)}<small>${c.label}</small>`;
-    b.onclick = () => { cg.querySelectorAll(".cat-choice").forEach(x => x.classList.remove("on")); b.classList.add("on"); cg.dataset.pick = key; };
+    b.onclick = () => { cg.querySelectorAll(".cat-choice").forEach(x => x.classList.remove("on")); b.classList.add("on"); cg.dataset.pick = key; updateAddSubmit(); };
     cg.appendChild(b);
   });
   const sel = $("addDay"), prev = sel.value;
   sel.innerHTML = dayOptionsHtml();
   sel.value = [...sel.options].some(o => o.value === prev) ? prev : (trip.days[0] && trip.days[0].id) || "";
+  updateAddSubmit();
   $("addDialog").showModal();
   setTimeout(() => $("addInput").focus(), 40);
 }
+$("addInput").addEventListener("input", updateAddSubmit);
+$("addDay").addEventListener("change", updateAddSubmit);
 
 async function handleAdd() {
   const input = $("addInput");
   const text = input.value.trim();
   const dayId = $("addDay").value;
   if (!text) return;
+
+  // a place picked from the map's "Discover nearby" — coords already known
+  if (addPrefill && text === addPrefill.name) {
+    addStopM(dayId, { name: addPrefill.name, lat: addPrefill.lat, lng: addPrefill.lng, links: addCatLinks() });
+    input.value = ""; addPrefill = null; $("addDialog").close();
+    return;
+  }
 
   if (/maps\.app\.goo\.gl|goo\.gl\/maps/.test(text)) {
     const short = text.match(/https?:\/\/\S*goo\.gl\/\S+/)?.[0] || text;
@@ -2277,6 +2331,9 @@ function render() {
       const wiki = wikiInfo(stop);
       const detailLine = (stop.notes && stop.notes.trim()) || (wiki && wiki.desc) || "";
       const hasMore = !!(links || (stop.notes && stop.notes.trim()));
+      const adder = stop.addedBy && stop.addedBy !== "starter" ? stop.addedBy : "";
+      const adderPhoto = adder ? travellerPhoto(adder) : null;
+      const adderAva = adder ? `<span class="added-by" title="Added by ${esc(adder)}">${adderPhoto ? `<img src="${esc(adderPhoto)}" alt="">` : avatar(adder)}</span>` : "";
       s.innerHTML = `
         <div class="stop-thumb" style="--dc:${color}" title="Show on map">
           <span class="thumb-ico">${catIcon(stop)}</span>
@@ -2284,7 +2341,7 @@ function render() {
           <span class="stop-seq">${visited ? "✓" : si + 1}</span>
         </div>
         <div class="body">
-          <div class="name"><span class="cat-badge" title="${esc(CATEGORIES[getCategory(stop)].label)}">${catIcon(stop)}</span> <span class="name-text"></span></div>
+          <div class="name"><span class="cat-badge" title="${esc(CATEGORIES[getCategory(stop)].label)}">${catIcon(stop)}</span> <span class="name-text"></span>${adderAva}</div>
           ${detailLine ? `<div class="detail"></div>` : ""}
           ${resBadgeHtml(stop)}
           <div class="acts">
@@ -2415,6 +2472,79 @@ function renderMap() {
     }
   });
   if (allPts.length && !map._userMoved) map.fitBounds(allPts, { padding: [40, 40] });
+}
+
+/* ---------- discover nearby places (OpenStreetMap / Overpass) ---------- */
+let discoverOn = false, poiLayer = null, discoverTimer = null;
+function catFromTags(t) {
+  if (t.natural === "hot_spring" || t.amenity === "public_bath") return "onsen";
+  if (t.tourism === "museum" || t.tourism === "gallery" || t.tourism === "artwork" || t.tourism === "viewpoint" || t.historic) return "sight";
+  if (t.tourism === "zoo" || t.tourism === "theme_park" || t.tourism === "aquarium" || t.tourism === "attraction") return "activity";
+  if (t.leisure === "park" || t.leisure === "garden" || t.natural) return "nature";
+  if (t.shop) return "shop";
+  if (t.amenity === "restaurant" || t.amenity === "cafe") return "food";
+  return "spot";
+}
+const nearExistingStop = (lat, lng) => trip.days.some(d => d.stops.some(s =>
+  Math.abs(s.lat - lat) < 0.0009 && Math.abs(s.lng - lng) < 0.0009));
+function setDiscoverHint(msg) {
+  const h = $("discoverHint");
+  h.textContent = msg || ""; h.classList.toggle("show", !!msg);
+}
+async function discoverPOIs() {
+  if (!discoverOn || !map) return;
+  if (map.getZoom() < 13) { if (poiLayer) poiLayer.clearLayers(); setDiscoverHint("Zoom in to find nearby places to add"); return; }
+  const b = map.getBounds();
+  const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
+  setDiscoverHint("Finding nearby places…");
+  const q = `[out:json][timeout:15];(` +
+    `node["tourism"~"attraction|museum|viewpoint|artwork|gallery|zoo|theme_park|aquarium"](${bbox});` +
+    `node["leisure"~"park|garden"](${bbox});` +
+    `node["natural"~"peak|waterfall|hot_spring|beach"](${bbox});` +
+    `node["historic"](${bbox}););out body 50;`;
+  try {
+    const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: "data=" + encodeURIComponent(q) });
+    const data = await res.json();
+    if (!poiLayer) poiLayer = L.layerGroup().addTo(map); else poiLayer.clearLayers();
+    let n = 0;
+    (data.elements || []).forEach(el => {
+      const name = el.tags && el.tags.name; if (!name || !el.lat) return;
+      if (nearExistingStop(el.lat, el.lon)) return;
+      if (n >= 50) return; n++;
+      const key = catFromTags(el.tags);
+      const m = L.marker([el.lat, el.lon], { icon: L.divIcon({ className: "", html: `<div class="poi-marker">+</div>`, iconSize: [16, 16], iconAnchor: [8, 8] }) });
+      const pid = "poi" + el.id;
+      m.bindPopup(`<div class="poi-pop"><b>${esc(name)}</b><br><span class="poi-cat">${esc(CATEGORIES[key].label)}</span><button data-poi="${pid}">＋ Add to trip</button></div>`);
+      m.on("popupopen", (e) => {
+        const btn = e.popup.getElement().querySelector("[data-poi]");
+        if (btn) btn.onclick = () => { map.closePopup(); addSuggestion({ name, lat: el.lat, lng: el.lon, cat: key }); };
+      });
+      poiLayer.addLayer(m);
+    });
+    setDiscoverHint(n ? n + " nearby — tap a ✦ to add it" : "No suggestions here — try another area");
+    setTimeout(() => { if (discoverOn) setDiscoverHint(""); }, 3500);
+  } catch (e) {
+    setDiscoverHint("Couldn't load nearby places right now");
+  }
+}
+function toggleDiscover() {
+  discoverOn = !discoverOn;
+  $("btnDiscover").classList.toggle("on", discoverOn);
+  $("btnDiscover").textContent = discoverOn ? "✦ Discovering…" : "✦ Discover nearby";
+  if (discoverOn) {
+    map.on("moveend", onDiscoverMove);
+    discoverPOIs();
+  } else {
+    map.off("moveend", onDiscoverMove);
+    if (poiLayer) poiLayer.clearLayers();
+    setDiscoverHint("");
+    $("btnDiscover").textContent = "✦ Discover nearby";
+  }
+}
+function onDiscoverMove() { clearTimeout(discoverTimer); discoverTimer = setTimeout(discoverPOIs, 600); }
+/* add a discovered place through the normal Add dialog (name + coords pre-filled) */
+function addSuggestion(poi) {
+  openAdd({ name: poi.name, lat: poi.lat, lng: poi.lng, cat: poi.cat });
 }
 
 /* ---------- Journey view: the itinerary as one glowing route ---------- */
@@ -2832,7 +2962,8 @@ function onMqChange() { if (mobileMq.matches) setMtab("plan"); }
 mobileMq.addEventListener("change", onMqChange);
 
 $("tripTitle").onchange = (e) => setTripTitle(e.target.value);
-$("btnOpenAdd").onclick = openAdd;
+$("btnOpenAdd").onclick = () => openAdd();
+$("btnDiscover").onclick = toggleDiscover;
 $("btnAddCancel").onclick = () => $("addDialog").close();
 $("addForm").onsubmit = (e) => { e.preventDefault(); handleAdd(); };
 $("addInput").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } };
@@ -2947,9 +3078,10 @@ function coverStep(which) {
   if (which === "trips") renderTripList();
 }
 function showCoverIfNew() {
-  // Always land on the home cover when the app opens (register if new, else
-  // pick a trip) — consistent across desktop and phone.
-  if (userName) coverStep("trips"); else { setupRegister(); coverStep("register"); }
+  // Always open on the name step (pre-filled for returning users) so you can
+  // key in / confirm who you are before the "Hi <name>" trip picker.
+  setupRegister(false);
+  coverStep("register");
   $("cover").classList.add("show");
 }
 /* --- registration / profile step (name + emoji/photo) ---
@@ -2965,8 +3097,9 @@ function setupRegister(editing) {
   regEditing = !!editing;
   regPhotoPending = undefined;
   $("regName").value = userName || "";
-  $("regKicker").textContent = editing ? "YOUR PROFILE" : "WELCOME TO PLONK!";
-  $("regTitle").textContent = editing ? "Your profile" : "Who's planning?";
+  const returning = !editing && !!userName;
+  $("regKicker").textContent = editing ? "YOUR PROFILE" : (returning ? "WELCOME BACK" : "WELCOME TO PLONK!");
+  $("regTitle").textContent = editing ? "Your profile" : (returning ? "It's you, right?" : "Who's planning?");
   $("btnRegister").textContent = editing ? "Save →" : "Continue →";
   $("btnRegBack").hidden = !editing;
   const grid = $("regEmojiGrid"); grid.hidden = true; grid.innerHTML = "";
