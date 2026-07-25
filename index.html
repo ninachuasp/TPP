@@ -208,8 +208,8 @@
   .trip-card .tc-pin { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; color: var(--accent); }
   .trip-card .tc-pin svg { width: 20px; height: 20px; }
   .trip-card .tc-body { flex: 1; min-width: 0; }
-  .trip-card .tc-title { font-weight: 700; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .trip-card .tc-meta { font-size: .76rem; color: var(--muted); }
+  .trip-card .tc-title { display: block; font-weight: 700; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trip-card .tc-meta { display: block; font-size: .76rem; color: var(--muted); }
   .trip-card .tc-go { color: var(--muted); font-size: 1.1rem; }
   .cover-newtrip {
     width: 100%; padding: 11px; border-radius: 13px; cursor: pointer; font-weight: 700;
@@ -1417,6 +1417,24 @@ function avatar(name) {
   return AVATARS[h % AVATARS.length];
 }
 const travellerPhoto = name => { const v = avaVal(name); return (v && typeof v === "object" && v.p) ? v.p : null; };
+/* Your photo may have been saved under a different trip's avatar map (each
+ * trip/local context keys its own). Fall back to scanning every stored map so
+ * your picture shows on the cover/profile no matter where it was uploaded. */
+function profilePhoto(name) {
+  const p = travellerPhoto(name);
+  if (p) return p;
+  const key = String(name || "").trim().toLowerCase();
+  if (!key) return null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || k.indexOf("tpp.avatars.") !== 0) continue;
+      const v = JSON.parse(localStorage.getItem(k) || "{}")[key];
+      if (v && typeof v === "object" && v.p) return v.p;
+    }
+  } catch (e) {}
+  return null;
+}
 const travellerLabel = key => { const v = chosenAvatars()[key]; return (v && typeof v === "object" && v.n) || key.charAt(0).toUpperCase() + key.slice(1); };
 /* Everyone who has a saved record, plus you. */
 function travellerNames() {
@@ -2334,7 +2352,7 @@ function dayColor(i) { return DAY_COLORS[i % DAY_COLORS.length]; }
 function render() {
   $("tripTitle").value = trip.title;
   if (userName) {
-    const wp = travellerPhoto(userName);
+    const wp = profilePhoto(userName);
     $("whoName").innerHTML = (wp ? `<span class="who-ava"><img src="${esc(wp)}" alt=""></span>` : `${avatar(userName)} `) + esc(userName);
   } else {
     $("whoName").textContent = "set name & photo";
@@ -3198,8 +3216,17 @@ function renderTripList() {
   const cur = currentTripEntry();
   rememberTrip({ id: cur.id, title: cur.title, url: cur.url });
   const others = knownTrips().filter(t => t.id !== cur.id);
+  // Collapse duplicates: the same trip can be remembered under both a local id
+  // and a live ?trip= id. Key on title so an identical trip shows only once
+  // (the current one wins, keeping its "you're here" tag).
+  const seen = new Set();
+  const list = [{ ...cur, current: true }, ...others].filter(t => {
+    const key = (t.title || "").trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
   const box = $("tripList"); box.innerHTML = "";
-  [{ ...cur, current: true }, ...others].forEach(t => {
+  list.forEach(t => {
     const card = document.createElement("button");
     card.className = "trip-card"; card.type = "button";
     card.innerHTML = `<span class="tc-pin">${TC_PIN}</span><span class="tc-body">` +
@@ -3210,8 +3237,8 @@ function renderTripList() {
     box.appendChild(card);
   });
   $("coverHi").textContent = userName ? "Hi " + userName + " — pick a trip" : "Pick a trip";
-  const photo = travellerPhoto(userName);
-  $("coverProfileAva").innerHTML = photo ? `<img src="${photo}" alt="">` : (userName ? avatar(userName) : "🙂");
+  const photo = profilePhoto(userName);
+  $("coverProfileAva").innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : (userName ? avatar(userName) : "🙂");
 }
 function enterApp() {
   const c = $("cover");
@@ -3242,16 +3269,17 @@ function regPreviewRender() {
   if (regPhotoPending !== undefined) {
     photo = regPhotoPending;                       // set/cleared this session
   } else if (regEditing && userName) {
-    photo = travellerPhoto(userName);              // editing own profile
+    photo = profilePhoto(userName);                // editing own profile
   } else if (!regEditing) {
     // fresh entry: if the typed name matches a saved profile, preview it
-    const rec = chosenAvatars()[($("regName").value || "").trim().toLowerCase()];
+    const typed = ($("regName").value || "").trim();
+    const rec = chosenAvatars()[typed.toLowerCase()];
     if (rec && typeof rec === "object") {
-      if (rec.p) photo = rec.p;
       if (rec.e && !regEmojiTouched) emoji = rec.e;
     }
+    photo = profilePhoto(typed);
   }
-  $("regPreview").innerHTML = photo ? `<img src="${photo}" alt="">` : emoji;
+  $("regPreview").innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : emoji;
   $("regPhotoClear").hidden = !photo;
 }
 function setupRegister(editing) {
