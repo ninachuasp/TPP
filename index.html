@@ -609,7 +609,7 @@
       <div class="cover-crew" id="coverCrew"></div>
       <button id="btnEnter" class="primary cover-enter">Start planning →</button>
     </div>
-    <div class="cover-foot">friends plonk, we plan</div>
+    <div class="cover-foot">you plonk, we plan</div>
   </div>
 </div>
 
@@ -631,7 +631,7 @@
       <circle class="lg-dot" cx="211" cy="57" r="5.5"/>
     </svg>
     <span class="tagwrap">
-      <small>friends plonk, we plan</small>
+      <small>you plonk, we plan</small>
       <svg class="tag-ul" viewBox="0 0 120 6" preserveAspectRatio="none" filter="url(#rough)"><path d="M2 3.4 Q 30 1 60 3.2 T 118 2.8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
     </span>
   </div>
@@ -665,7 +665,7 @@
       <svg class="doodle-frame" preserveAspectRatio="none" viewBox="0 0 300 120" filter="url(#rough2)"><rect x="3" y="3" width="294" height="114" rx="16" vector-effect="non-scaling-stroke"/></svg>
       <span id="footerMark"></span>
       <div class="bf-name">Plonk!</div>
-      <div class="bf-tag">friends plonk, we plan</div>
+      <div class="bf-tag">you plonk, we plan</div>
     </div>
   </div>
   <div id="map">
@@ -758,7 +758,7 @@
   <h3>Your profile</h3>
   <form method="dialog" id="profileForm">
     <label>Name <span style="font-weight:400;color:var(--muted)">(shows on pins you add)</span></label>
-    <input id="profileName" placeholder="e.g. Nina" autocomplete="off">
+    <input id="profileName" placeholder="your name" autocomplete="off">
     <label>Your emoji</label>
     <div id="avatarGrid"></div>
     <div class="actions">
@@ -819,53 +819,53 @@ function seedTrip() {
   return {
     title: "Sapporo Road Trip · 12–24 Oct",
     days: [
-      { id: uid(), date: "2026-10-12", title: "Sapporo · Derek & Sean", lodging: "Sapporo — hotel TBD", stops: [
+      { id: uid(), date: "2026-10-12", title: "Sapporo", lodging: "Sapporo — hotel TBD", stops: [
         mk("Nijo Market", 43.0570, 141.3612, [], "Land + morning kaisendon run"),
         mk("Odori Park & TV Tower", 43.0606, 141.3472, [], "Walk it off downtown"),
         mk("Sapporo Beer Garden", 43.0713, 141.3697, [{ type: "reservation", kind: "dinner", status: "pending", note: "18:30 — book ahead" }], "Genghis Khan BBQ dinner"),
         mk("Susukino", 43.0553, 141.3536, [], "Nightcap / ramen alley"),
       ]},
-      { id: uid(), date: "2026-10-13", title: "Sapporo & Jozankei · Derek & Sean", lodging: "Sapporo — hotel TBD", stops: [
+      { id: uid(), date: "2026-10-13", title: "Sapporo & Jozankei", lodging: "Sapporo — hotel TBD", stops: [
         mk("Hokkaido Shrine", 43.0545, 141.3079, [], "Maruyama Park autumn stroll"),
         mk("Shiroi Koibito Park", 43.0879, 141.2717),
         mk("Jozankei Onsen", 42.9679, 141.1678, [], "Peak koyo season — day-use onsen, ~50 min drive"),
         mk("Mt. Moiwa Ropeway", 43.0333, 141.3222, [], "Night view on the way back"),
       ]},
-      { id: uid(), date: "2026-10-14", title: "Pickup → Noboribetsu · all 4", lodging: "Noboribetsu onsen ryokan", stops: [
-        mk("New Chitose Airport", 42.7752, 141.6923, [], "Collect Nina & Seth + rental car"),
+      { id: uid(), date: "2026-10-14", title: "Pickup → Noboribetsu", lodging: "Noboribetsu onsen ryokan", stops: [
+        mk("New Chitose Airport", 42.7752, 141.6923, [], "Airport pickup + rental car"),
         mk("Lake Shikotsu", 42.7600, 141.3400, [], "Lakeside foliage stop, 30 min from airport"),
         mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [{ type: "reservation", kind: "hotel", status: "pending", note: "onsen ryokan TBD" }], "Check into onsen ryokan, evening Hell Valley walk"),
       ]},
-      { id: uid(), date: "2026-10-15", title: "Noboribetsu → Lake Toya · all 4", lodging: "Lake Toya onsen hotel", stops: [
+      { id: uid(), date: "2026-10-15", title: "Noboribetsu → Lake Toya", lodging: "Lake Toya onsen hotel", stops: [
         mk("Usuzan Ropeway", 42.5430, 140.8280, [], "Volcano + caldera views"),
         mk("Lake Toya", 42.6048, 140.8464, [], "Lakefront onsen stay — nightly fireworks run to end of Oct"),
       ]},
-      { id: uid(), date: "2026-10-16", title: "Toya → Shakotan → Otaru · all 4", lodging: "Otaru — hotel TBD", stops: [
+      { id: uid(), date: "2026-10-16", title: "Toya → Shakotan → Otaru", lodging: "Otaru — hotel TBD", stops: [
         mk("Niseko", 42.8048, 140.6874, [], "Coffee stop, Mt Yotei viewpoints"),
         mk("Cape Kamui", 43.3360, 140.3430, [], "Shakotan-blue cliff walk + uni-don lunch nearby"),
         mk("Otaru Canal", 43.1985, 140.9959, [], "Evening gaslight stroll — stay Otaru"),
       ]},
-      { id: uid(), date: "2026-10-17", title: "Otaru → Yoichi → Furano · all 4", lodging: "Furano — hotel TBD", stops: [
+      { id: uid(), date: "2026-10-17", title: "Otaru → Yoichi → Furano", lodging: "Furano — hotel TBD", stops: [
         mk("Sankaku Market", 43.1990, 140.9917, [], "Seafood breakfast"),
         mk("Nikka Whisky Yoichi Distillery", 43.1912, 140.7852, [], "Book tasting ahead"),
         mk("Ningle Terrace", 43.3187, 142.3819, [], "~3h drive; twilight craft huts — stay Furano"),
       ]},
-      { id: uid(), date: "2026-10-18", title: "Biei loop → Asahikawa · all 4", lodging: "Asahikawa — hotel TBD", stops: [
+      { id: uid(), date: "2026-10-18", title: "Biei loop → Asahikawa", lodging: "Asahikawa — hotel TBD", stops: [
         mk("Blue Pond (Aoiike)", 43.4839, 142.6270, [], "Go early to beat tour buses"),
         mk("Shirahige Falls", 43.4740, 142.6360),
         mk("Patchwork Road, Biei", 43.6000, 142.4300, [], "Rolling farm hills drive"),
         mk("Shikisai-no-oka", 43.5387, 142.4785, [], "Autumn flower fields"),
         mk("Asahikawa Ramen Village", 43.7910, 142.4086, [], "Shoyu ramen dinner — stay Asahikawa"),
       ]},
-      { id: uid(), date: "2026-10-19", title: "Sounkyo → Sapporo · all 4", lodging: "Sapporo — hotel TBD", stops: [
+      { id: uid(), date: "2026-10-19", title: "Sounkyo → Sapporo", lodging: "Sapporo — hotel TBD", stops: [
         mk("Sounkyo Gorge", 43.7280, 142.9480, [], "Ginga & Ryusei falls, ropeway koyo — or swap for Asahiyama Zoo"),
         mk("Asahiyama Zoo", 43.7679, 142.4808, [], "Alternative to Sounkyo; then ~2h drive to Sapporo, farewell jingisukan dinner"),
       ]},
-      { id: uid(), date: "2026-10-20", title: "Farewell · all 4, Derek & Sean fly out", lodging: "Sapporo — hotel TBD (Nina & Seth)", stops: [
+      { id: uid(), date: "2026-10-20", title: "Farewell", lodging: "Sapporo — hotel TBD", stops: [
         mk("Tanukikoji Shopping Street", 43.0574, 141.3517, [], "Souvenir run"),
-        mk("New Chitose Airport", 42.7752, 141.6923, [], "Drop car + Derek & Sean fly out"),
+        mk("New Chitose Airport", 42.7752, 141.6923, [], "Drop rental car + fly out"),
       ]},
-      { id: uid(), title: "Tue 21–24 Oct — Nina & Seth solo ideas", stops: [
+      { id: uid(), title: "Extra ideas", stops: [
         mk("Moerenuma Park", 43.1226, 141.4276, [], "Noguchi-designed park, rent bikes"),
         mk("Sapporo Beer Museum", 43.0717, 141.3690),
         mk("Okurayama Ski Jump", 43.0480, 141.2880, [], "City panorama from the jump tower"),
@@ -894,7 +894,7 @@ const stopVotes = stop => (SYNC_META ? stop.votes : meta.votes[stop.id]) || {};
 const fireCount = stop => Object.values(stopVotes(stop)).filter(Boolean).length;
 const mustCount = stop => Object.values(stopVotes(stop)).filter(x => x === 2).length;
 const myVote = stop => stopVotes(stop)[userName || "anonymous"] || 0;
-const voteNames = stop => { const ns = Object.entries(stopVotes(stop)).filter(([, lv]) => lv).map(([n]) => avatar(n) + " " + n); return ns.length ? "Wants to do this: " + ns.join(", ") : ""; };
+const voteNames = stop => { const n = fireCount(stop); return n ? n + (n === 1 ? " person wants to do this" : " people want to do this") : ""; };
 function setVote(stop, level) {
   const k = userName || "anonymous";
   const v = { ...stopVotes(stop) };
@@ -951,6 +951,14 @@ function stripLeadingDate(title) {
     .replace(/^\s*(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s+/i, "")
     .replace(/^\s*\d{1,2}\s*(?:[–-]\s*\d{1,2})?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*(?:[—–\-·:]\s*)?/i, "")
     .trim();
+}
+/* Strip crew / people / "all 4" tails from a day label for display, so the UI
+ * never shows who's on a day — covers already-seeded live trips too. */
+function cleanTitle(title) {
+  if (!title) return title || "";
+  let s = String(title).split("·")[0];                       // drop "· <crew>" tail
+  s = s.replace(/\s*—\s*[^—]*\b(solo|crew|all\s*\d|derek|sean|nina|seth)\b.*$/i, ""); // drop "— <crew/solo>" tail
+  return s.trim() || String(title).trim();
 }
 const isToday = day => dayDateISO(day) === todayISO();
 function setDayDate(day, iso) {
@@ -1188,35 +1196,8 @@ function driveBadge(day, di) {
   return el;
 }
 
-/* ---------- crew presence (derived from day titles) ----------
- * Crew A = Derek & Sean (12–20 Oct) · Crew B = Nina & Seth (14–24 Oct).
- * Shown as each traveler's emoji avatar so it reads without a legend. */
-const CREW_A_MEMBERS = ["Derek", "Sean"], CREW_B_MEMBERS = ["Nina", "Seth"];
-function crewOnDay(title) {
-  const t = title.toLowerCase();
-  const hasA = /crew a|derek|sean\b/.test(t);
-  const hasB = /crew b|nina|seth\b/.test(t);
-  if (/all 4|all4|everyone/.test(t) || (hasA && hasB)) return [...CREW_A_MEMBERS, ...CREW_B_MEMBERS];
-  if (hasA) return CREW_A_MEMBERS;
-  if (hasB) return CREW_B_MEMBERS;
-  return null;
-}
-function crewDots(title) {
-  const people = crewOnDay(title);
-  if (!people) return null;
-  const s = document.createElement("span");
-  s.className = "crew-ava";
-  s.title = people.length > 2
-    ? people.slice(0, -1).join(", ") + " & " + people[people.length - 1]
-    : people.join(" & ");
-  people.forEach(n => { const i = document.createElement("i"); i.textContent = avatar(n); s.appendChild(i); });
-  return s;
-}
-
 /* ---------- fun pack: avatars, trip-ometer, confetti, roulette ---------- */
 const AVATARS = ["🦊", "🐻", "🐧", "🦉", "🐯", "🦌", "🐙", "🐬", "🦜", "🐢"];
-/* Starter avatars for the crew; each person can change theirs in Profile. */
-const AVATAR_FIXED = { derek: "🐻", sean: "🦊", nina: "🐧", seth: "🦉" };
 /* Chosen avatars: synced on trip_trips.avatars when that column exists,
  * else a per-device map. Keyed by lowercased name. */
 let AVA_SYNC = false;
@@ -1229,7 +1210,6 @@ function avatar(name) {
   const key = name.trim().toLowerCase();
   const chosen = chosenAvatars()[key];
   if (chosen) return chosen;
-  if (AVATAR_FIXED[key]) return AVATAR_FIXED[key];
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return AVATARS[h % AVATARS.length];
@@ -1356,7 +1336,7 @@ function spinDay(day) {
 const PLACEHOLDERS = [
   "Paste a Google Maps link, or just type 'ramen'…",
   "Found something on a reel? Drop the maps link here",
-  "Where does Seth want to eat? 👀",
+  "Where's dinner tonight? 👀",
   "Type 'onsen' — you know you want to",
   "43.0618, 141.3545 works too, map nerds",
 ];
@@ -2005,14 +1985,12 @@ function render() {
         `</span>`;
     } else {
       const ti = document.createElement("input"); ti.className = "day-title-main";
-      ti.value = day.title;
+      ti.value = cleanTitle(day.title);
       ti.onchange = () => renameDay(day, ti.value);
       hero.appendChild(ti);
     }
     top.appendChild(hero);
     if (today) top.insertAdjacentHTML("beforeend", `<span class="today-chip">TODAY</span>`);
-    const dots = crewDots(day.title);
-    if (dots && !dated) top.appendChild(dots);  // dated days show crew on the subtitle row
     top.insertAdjacentHTML("beforeend", `<span class="day-spacer"></span>`);
 
     if (day.stops.length >= 2) {
@@ -2037,7 +2015,7 @@ function render() {
     const delBtn = document.createElement("button");
     delBtn.className = "mini"; delBtn.textContent = "✕"; delBtn.title = "Remove day";
     delBtn.onclick = () => {
-      if (day.stops.length && !confirm(`Remove "${day.title}" and its ${day.stops.length} stop(s)?`)) return;
+      if (day.stops.length && !confirm(`Remove "${cleanTitle(day.title)}" and its ${day.stops.length} stop(s)?`)) return;
       removeDay(day);
     };
     top.appendChild(delBtn);
@@ -2047,11 +2025,10 @@ function render() {
     if (dated) {
       const bot = document.createElement("div"); bot.className = "day-botrow";
       const titleInput = document.createElement("input");
-      titleInput.value = stripLeadingDate(day.title);
+      titleInput.value = cleanTitle(stripLeadingDate(day.title));
       titleInput.placeholder = "Add a label for this day…";
       titleInput.onchange = () => renameDay(day, titleInput.value);
       bot.appendChild(titleInput);
-      if (dots) bot.appendChild(dots);
       const drive = driveBadge(day, di);
       if (drive) bot.appendChild(drive);
       const wx = weatherChip(day);
@@ -2099,12 +2076,12 @@ function render() {
           ${detailLine ? `<div class="detail"></div>` : ""}
           ${resBadgeHtml(stop)}
           <div class="acts">
-            <button data-op="want" class="want ${myVote(stop) ? "on" : ""}" title="${esc(voteNames(stop)) || "Add to the crew's want-to-do list"}"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M12 3.4l2.5 5.5 6 .5-4.5 3.9 1.3 5.9-5.3-3.1-5.3 3.1 1.3-5.9L3.5 9.4l6-.5z"/></svg>${want ? `<span class="wc">${want}</span>` : ""}</button>
+            <button data-op="want" class="want ${myVote(stop) ? "on" : ""}" title="${esc(voteNames(stop)) || "Add to the want-to-do list"}"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M12 3.4l2.5 5.5 6 .5-4.5 3.9 1.3 5.9-5.3-3.1-5.3 3.1 1.3-5.9L3.5 9.4l6-.5z"/></svg>${want ? `<span class="wc">${want}</span>` : ""}</button>
             <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
             <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Get directions in Google Maps"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.4"/></svg> Google Maps</a>
           </div>
           <div class="stop-more" hidden>
-            <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}${stop.addedBy ? " · added by " + esc(avatar(stop.addedBy) + " " + stop.addedBy) : ""}</div>
+            <div class="meta">${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}</div>
             ${links ? `<div class="links">${links}</div>` : ""}
             ${stop.notes ? `<div class="notes"></div>` : ""}
           </div>
@@ -2138,7 +2115,7 @@ function render() {
         if (!wasVisited) {
           confetti(ev.clientX, ev.clientY);
           if (day.stops.every(st => st === stop || isVisited(st)) && day.stops.length > 1) {
-            setTimeout(() => { confetti(innerWidth / 2, innerHeight / 3, 60); toast(`🎉 ${day.title} — complete!`); }, 300);
+            setTimeout(() => { confetti(innerWidth / 2, innerHeight / 3, 60); toast(`🎉 ${cleanTitle(day.title)} — complete!`); }, 300);
           }
         }
       };
@@ -2193,7 +2170,7 @@ function renderMap() {
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join(" · ");
       const photo = stopPhoto(stop);
       const marker = L.marker([stop.lat, stop.lng], { icon })
-        .bindPopup(`<b>${catIcon(stop)} ${esc(stop.name)}</b><br><span style="color:${color}">${esc(day.title)}</span>` +
+        .bindPopup(`<b>${catIcon(stop)} ${esc(stop.name)}</b><br><span style="color:${color}">${esc(cleanTitle(day.title))}</span>` +
           (photo ? `<br><img src="${esc(photo)}" alt="" onerror="this.remove()" style="width:180px;max-height:110px;object-fit:cover;border-radius:8px;margin-top:5px">` : "") +
           (resBadgeHtml(stop) ? "<br>" + resBadgeHtml(stop) : "") +
           (links ? "<br>" + links : "") +
@@ -2220,7 +2197,6 @@ function renderMap() {
 
 /* ---------- Journey view: the itinerary as one glowing route ---------- */
 let questOn = false;
-const TRAVELERS = ["Derek", "Sean", "Nina", "Seth"];
 
 function renderQuest() {
   if (!questOn) return;
@@ -2246,7 +2222,6 @@ function renderQuest() {
   const subtitle = [
     dates ? fmt(dates.start) + " – " + fmt(dates.end) : null,
     total + " stops",
-    TRAVELERS.length + " travelers",
     seen ? seen + " visited" : null,
   ].filter(Boolean).join("  ·  ").toUpperCase();
 
@@ -2286,7 +2261,7 @@ function renderQuest() {
       <line x1="${CX - 260}" y1="${b.y - 33}" x2="${CX - 170}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
       <line x1="${CX + 170}" y1="${b.y - 33}" x2="${CX + 260}" y2="${b.y - 33}" stroke="${RULE}" stroke-width="1"/>
       <circle cx="${CX - 158}" cy="${b.y - 33}" r="3.5" fill="${dayColor(b.di)}"/>
-      <text x="${CX}" y="${b.y - 28}" text-anchor="middle" font-size="14.5" font-style="italic" fill="${INK}" ${serif}>${esc((() => { const iso = dayDateISO(b.day); const label = iso && !excludedDay(b.day) ? fmtDate(iso) + " — " + stripLeadingDate(b.day.title) : b.day.title; return label.length > 44 ? label.slice(0, 43) + "…" : label; })())}</text>
+      <text x="${CX}" y="${b.y - 28}" text-anchor="middle" font-size="14.5" font-style="italic" fill="${INK}" ${serif}>${esc((() => { const iso = dayDateISO(b.day); const label = iso && !excludedDay(b.day) ? fmtDate(iso) + " — " + cleanTitle(stripLeadingDate(b.day.title)) : cleanTitle(b.day.title); return label.length > 44 ? label.slice(0, 43) + "…" : label; })())}</text>
       ${subTxt ? `<text x="${CX}" y="${b.y - 11}" text-anchor="middle" font-size="8.5" fill="${MUTED}" letter-spacing="2">${subTxt}</text>` : ""}</g>`;
   });
 
@@ -2378,8 +2353,8 @@ function openEdit(day, stop) {
     cg.appendChild(b);
   });
   const sel = $("editDaySel");
-  sel.innerHTML = trip.days.map(d =>
-    `<option value="${d.id}" ${d.id === day.id ? "selected" : ""}>${esc(d.title)}</option>`).join("");
+  sel.innerHTML = dayOptionsHtml();
+  sel.value = day.id;
   const linksBox = $("editLinks");
   linksBox.innerHTML = "";
   strLinks(stop).forEach(u => addLinkRow(u));
@@ -2676,9 +2651,7 @@ function renderCover() {
   let meta = dc + " day" + (dc !== 1 ? "s" : "");
   if (dated.length) meta = fmtDate(dated[0]) + " – " + fmtDate(dated[dated.length - 1]) + "  ·  " + meta;
   $("coverDates").textContent = meta;
-  const crew = [...new Set(trip.days.flatMap(d => d.stops.map(s => s.addedBy)).filter(Boolean))]
-    .filter(n => n && n !== "starter").slice(0, 6);
-  $("coverCrew").innerHTML = crew.map(n => `<span class="cav" title="${esc(n)}">${avatar(n)}</span>`).join("");
+  $("coverCrew").innerHTML = "";
 }
 function enterApp() {
   const c = $("cover");

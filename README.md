@@ -1,6 +1,6 @@
 # Plonk 📍
 
-**Friends plonk, we plan.** A link-first, real-time group road-trip planner — built and
+**You plonk, we plan.** A link-first, real-time group road-trip planner — built and
 test-driven with a **Sapporo road trip**.
 
 Live at **https://ninachuasp.github.io/TPP/** (served from the `gh-pages` branch —
