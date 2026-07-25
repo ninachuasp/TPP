@@ -1932,40 +1932,49 @@ function moveStop(day, i, delta) {
     render();
   } else persistLocal();
 }
-/* Move a stop to an arbitrary index within its day (used by drag-to-reorder). */
-function reorderStop(day, fromIdx, toIdx) {
-  if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
-  const arr = day.stops;
-  const [moved] = arr.splice(fromIdx, 1);
-  arr.splice(toIdx, 0, moved);
+/* Move a stop to an index within any day (drag-to-reorder, incl. across days). */
+function moveStopTo(stopId, fromDayId, toDayId, toIdx) {
+  const fromDay = trip.days.find(d => d.id === fromDayId);
+  const toDay = trip.days.find(d => d.id === toDayId);
+  if (!fromDay || !toDay) return;
+  const idx = fromDay.stops.findIndex(s => s.id === stopId);
+  if (idx < 0) return;
+  const [moved] = fromDay.stops.splice(idx, 1);
+  const clamped = Math.max(0, Math.min(toIdx, toDay.stops.length));
+  toDay.stops.splice(clamped, 0, moved);
   if (LIVE) {
-    Promise.all(arr.map((s, i) => sb.from("trip_stops").update({ position: i }).eq("id", s.id))).then(scheduleRefresh);
+    const ups = [];
+    if (fromDay !== toDay) ups.push(sb.from("trip_stops").update({ day_id: toDay.id }).eq("id", moved.id));
+    toDay.stops.forEach((s, i) => ups.push(sb.from("trip_stops").update({ position: i }).eq("id", s.id)));
+    if (fromDay !== toDay) fromDay.stops.forEach((s, i) => ups.push(sb.from("trip_stops").update({ position: i }).eq("id", s.id)));
+    Promise.all(ups).then(scheduleRefresh);
     render();
   } else persistLocal();
 }
-/* Pointer-based drag reorder from a card's grip handle; reflows the list live
- * and works with both mouse and touch. */
-function makeDraggable(handle, s, day, container) {
+/* Pointer-based drag from a card's grip handle; reflows live across every day
+ * (works with mouse and touch), so a stop can be dropped onto another day. */
+function makeDraggable(handle, s) {
   handle.style.touchAction = "none";
   handle.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     const startY = e.clientY;
     let dragging = false;
-    const stops = () => [...container.querySelectorAll(".stop")];
     try { handle.setPointerCapture(e.pointerId); } catch (_) {}
     const onMove = (ev) => {
       if (!dragging) {
         if (Math.abs(ev.clientY - startY) < 5) return;
         dragging = true; s.classList.add("dragging");
       }
-      const sibs = stops().filter(x => x !== s);
-      let target = null;
-      for (const sib of sibs) {
-        const r = sib.getBoundingClientRect();
-        if (ev.clientY < r.top + r.height / 2) { target = sib; break; }
-      }
-      if (target) container.insertBefore(s, target);
+      // which day is the pointer over?
+      const days = [...document.querySelectorAll("#days .day")];
+      let td = days.find(d => { const r = d.getBoundingClientRect(); return ev.clientY >= r.top && ev.clientY <= r.bottom; });
+      if (!td && days.length) td = ev.clientY < days[0].getBoundingClientRect().top ? days[0] : days[days.length - 1];
+      if (!td) return;
+      const sibs = [...td.querySelectorAll(".stop")].filter(x => x !== s);
+      const ref = sibs.find(sib => { const r = sib.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
+      if (ref) td.insertBefore(s, ref);
       else if (sibs.length) sibs[sibs.length - 1].after(s);
+      else { const stay = td.querySelector(".day-stay"); stay ? td.insertBefore(s, stay) : td.appendChild(s); }
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
@@ -1973,9 +1982,10 @@ function makeDraggable(handle, s, day, container) {
       window.removeEventListener("pointercancel", onUp);
       if (!dragging) return;
       s.classList.remove("dragging");
-      const toIdx = stops().indexOf(s);
-      const fromIdx = day.stops.findIndex(st => st.id === s.dataset.stopId);
-      if (toIdx >= 0 && fromIdx >= 0) reorderStop(day, fromIdx, toIdx);
+      const td = s.closest(".day");
+      if (!td) { render(); return; }
+      const toIdx = [...td.querySelectorAll(".stop")].indexOf(s);
+      moveStopTo(s.dataset.stopId, s.dataset.dayId, td.dataset.dayId, toIdx);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -2397,6 +2407,7 @@ function render() {
       const visited = isVisited(stop);
       s.className = "stop" + (visited ? " visited-row" : "");
       s.dataset.stopId = stop.id;
+      s.dataset.dayId = day.id;
       const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join("");
       const photo = stopPhoto(stop);
@@ -2458,7 +2469,7 @@ function render() {
         }
       };
       s.querySelector('[data-op=edit]').onclick = () => openEdit(day, stop);
-      makeDraggable(s.querySelector(".drag-handle"), s, day, el);
+      makeDraggable(s.querySelector(".drag-handle"), s);
       el.appendChild(s);
     });
 
