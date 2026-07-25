@@ -167,6 +167,28 @@
   .cover-crew .cav:first-child { margin-left: 0; }
   .cover-enter { margin-top: 20px; width: 100%; padding: 13px; font-size: 1rem; border-radius: 13px; }
   .cover-foot { color: rgba(255,255,255,.82); font-size: .82rem; letter-spacing: .02em; }
+  .reg-row { display: flex; align-items: center; gap: 11px; margin: 16px 0 10px; }
+  .reg-row #regPreview { width: 50px; height: 50px; font-size: 1.5rem; }
+  .reg-row input { flex: 1; min-width: 0; font-size: 1rem; padding: 10px 12px; }
+  .trip-list { display: flex; flex-direction: column; gap: 9px; margin: 14px 0 12px; text-align: left; }
+  .trip-card {
+    display: flex; align-items: center; gap: 11px; padding: 12px 13px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 13px; background: var(--panel); width: 100%;
+    text-align: left; font: inherit; color: var(--ink); transition: border-color .15s, transform .05s;
+  }
+  .trip-card:hover { border-color: var(--accent); }
+  .trip-card:active { transform: scale(.99); }
+  .trip-card .tc-pin { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; color: var(--accent); }
+  .trip-card .tc-pin svg { width: 20px; height: 20px; }
+  .trip-card .tc-body { flex: 1; min-width: 0; }
+  .trip-card .tc-title { font-weight: 700; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trip-card .tc-meta { font-size: .76rem; color: var(--muted); }
+  .trip-card .tc-go { color: var(--muted); font-size: 1.1rem; }
+  .cover-newtrip {
+    width: 100%; padding: 11px; border-radius: 13px; cursor: pointer; font-weight: 700;
+    border: 1.5px dashed var(--accent); background: transparent; color: var(--accent);
+  }
+  .cover-newtrip:hover { background: var(--accent-soft); }
   .hint { font-size: .72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
   .geo-results { margin-top: 6px; }
   .geo-results button {
@@ -298,6 +320,10 @@
   .stop .ops button:hover { color: var(--accent); }
   .stop .ops button[data-op=more] { transition: transform .18s; }
   .stop .ops button[data-op=more].open { transform: rotate(180deg); color: var(--accent); }
+  .stop .ops button.drag-handle { cursor: grab; color: var(--muted); touch-action: none; padding: 2px 4px; }
+  .stop .ops button.drag-handle:hover { color: var(--accent); }
+  .stop .ops button.drag-handle:active { cursor: grabbing; }
+  .stop.dragging { background: var(--accent-soft); border-radius: 12px; box-shadow: 0 10px 26px -10px rgba(0,0,0,.4); position: relative; z-index: 6; }
   .empty-day { padding: 10px 12px; font-size: .77rem; color: var(--muted); font-style: italic; }
   .day-stay {
     display: flex; align-items: center; gap: 7px; cursor: pointer;
@@ -431,6 +457,26 @@
   .ava-choice:hover { border-color: var(--accent); }
   .ava-choice.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
   @media (max-width: 760px) { #avatarGrid { grid-template-columns: repeat(6, 1fr); } }
+  /* ---- travellers ---- */
+  .trav-list { display: flex; flex-wrap: wrap; gap: 12px 10px; margin: 6px 0 4px; }
+  .trav-list .hint { margin: 2px 0; }
+  .trav-card { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 66px; }
+  .trav-ava {
+    width: 52px; height: 52px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 1.55rem;
+    background: var(--accent-soft); box-shadow: 0 0 0 1px var(--line);
+  }
+  .trav-ava img { width: 100%; height: 100%; object-fit: cover; }
+  .trav-name { font-size: .74rem; text-align: center; max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trav-you-tag { font-size: .58rem; font-weight: 800; color: var(--pop); letter-spacing: .1em; }
+  .trav-you { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+  .trav-editrow { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .trav-editrow #travPreview { width: 46px; height: 46px; font-size: 1.4rem; }
+  .trav-editrow input { flex: 1; min-width: 0; }
+  .trav-rep-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .trav-rep-btns button { font-size: .78rem; }
+  .ava-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 8px; }
+  @media (max-width: 760px) { .ava-grid { grid-template-columns: repeat(6, 1fr); } }
   .tripometer {
     font-size: .72rem; font-weight: 700; color: var(--accent);
     background: var(--accent-soft); border-radius: 20px; padding: 3px 10px;
@@ -602,12 +648,27 @@
       </g>
       <circle cx="211" cy="57" r="5.5" fill="var(--pop)"/>
     </svg>
-    <div class="cover-ticket">
-      <div class="cover-kicker">YOUR TRIP</div>
-      <div class="cover-title" id="coverTitle">Your trip</div>
-      <div class="cover-meta" id="coverDates"></div>
-      <div class="cover-crew" id="coverCrew"></div>
-      <button id="btnEnter" class="primary cover-enter">Start planning →</button>
+    <div class="cover-ticket" id="coverRegister" hidden>
+      <div class="cover-kicker">WELCOME TO PLONK!</div>
+      <div class="cover-title">Who's planning?</div>
+      <div class="cover-meta">Add your name and a face so your crew knows who's who.</div>
+      <div class="reg-row">
+        <div id="regPreview" class="trav-ava"></div>
+        <input id="regName" placeholder="your name" autocomplete="off">
+      </div>
+      <div class="trav-rep-btns" style="justify-content:center">
+        <button type="button" id="regEmojiBtn">😀 Choose emoji</button>
+        <button type="button" id="regPhotoBtn">📷 Upload photo</button>
+      </div>
+      <div id="regEmojiGrid" class="ava-grid" hidden></div>
+      <input type="file" id="regPhotoInput" accept="image/*" hidden>
+      <button id="btnRegister" class="primary cover-enter">Continue →</button>
+    </div>
+    <div class="cover-ticket" id="coverTrips" hidden>
+      <div class="cover-kicker">YOUR TRIPS</div>
+      <div class="cover-title" style="font-size:1.35rem" id="coverHi">Pick a trip</div>
+      <div id="tripList" class="trip-list"></div>
+      <button id="btnNewTrip" class="cover-newtrip">＋ Start a new trip</button>
     </div>
     <div class="cover-foot">you plonk, we plan</div>
   </div>
@@ -648,6 +709,7 @@
   <button id="btnShare" class="primary">🔗 Share trip link</button>
   <button id="btnMore" title="More">⋯</button>
   <div id="moreMenu">
+    <button id="btnTravellers">👥 Travellers</button>
     <button id="btnExport">⬇ Export JSON</button>
     <button id="btnImport">⬆ Import</button>
     <button id="btnPrint">🖨 Itinerary</button>
@@ -766,6 +828,29 @@
       <button type="submit" class="primary">Save</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="travellersDialog">
+  <h3>👥 Travellers</h3>
+  <div id="travellersList" class="trav-list"></div>
+  <div class="trav-you">
+    <label>You</label>
+    <div class="trav-editrow">
+      <div id="travPreview" class="trav-ava"></div>
+      <input id="travName" placeholder="your name" autocomplete="off">
+    </div>
+    <div class="trav-rep-btns">
+      <button type="button" id="travEmojiBtn">😀 Choose emoji</button>
+      <button type="button" id="travPhotoBtn">📷 Upload photo</button>
+      <button type="button" id="travPhotoClear" hidden>Remove photo</button>
+    </div>
+    <div id="travEmojiGrid" class="ava-grid" hidden></div>
+    <input type="file" id="travPhotoInput" accept="image/*" hidden>
+  </div>
+  <div class="actions">
+    <button type="button" id="travClose">Close</button>
+    <button type="button" class="primary" id="travSave">Save</button>
+  </div>
 </dialog>
 
 <dialog id="backupDialog">
@@ -1205,28 +1290,45 @@ const avatarsKey = () => "tpp.avatars." + (LIVE ? LIVE_TRIP_ID : "local");
 let localAvatars = {};
 try { localAvatars = JSON.parse(localStorage.getItem(avatarsKey()) || "{}"); } catch (e) {}
 const chosenAvatars = () => (AVA_SYNC && trip && trip.avatars) ? trip.avatars : localAvatars;
+/* A traveller's stored value is either a legacy emoji string or a record
+ * { e: emoji, p: photoDataURL, n: displayName }. */
+const avaVal = name => chosenAvatars()[String(name || "").trim().toLowerCase()];
 function avatar(name) {
   if (!name) return "";
-  const key = name.trim().toLowerCase();
-  const chosen = chosenAvatars()[key];
-  if (chosen) return chosen;
+  const v = avaVal(name);
+  const e = typeof v === "string" ? v : (v && v.e);
+  if (e) return e;
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return AVATARS[h % AVATARS.length];
 }
-function setAvatar(name, emoji) {
-  const key = name.trim().toLowerCase();
+const travellerPhoto = name => { const v = avaVal(name); return (v && typeof v === "object" && v.p) ? v.p : null; };
+const travellerLabel = key => { const v = chosenAvatars()[key]; return (v && typeof v === "object" && v.n) || key.charAt(0).toUpperCase() + key.slice(1); };
+/* Everyone who has a saved record, plus you. */
+function travellerNames() {
+  const s = new Set(Object.keys(chosenAvatars()));
+  if (userName) s.add(userName.trim().toLowerCase());
+  return [...s];
+}
+/* Merge a patch ({e}, {p}, {n}) into a traveller's record and persist. */
+function saveAvatarRec(name, patch) {
+  const key = String(name || "").trim().toLowerCase();
   if (!key) return;
+  const cur = chosenAvatars()[key];
+  const rec = (cur && typeof cur === "object") ? { ...cur } : (cur ? { e: cur } : {});
+  Object.assign(rec, patch);
+  if (rec.p === null) delete rec.p;
   if (LIVE && AVA_SYNC) {
     const map = { ...(trip.avatars || {}) };
-    map[key] = emoji; trip.avatars = map; render();
+    map[key] = rec; trip.avatars = map; render();
     dbTry(sb.from("trip_trips").update({ avatars: map }).eq("id", LIVE_TRIP_ID));
   } else {
-    localAvatars[key] = emoji;
+    localAvatars[key] = rec;
     localStorage.setItem(avatarsKey(), JSON.stringify(localAvatars));
     render();
   }
 }
+function setAvatar(name, emoji) { saveAvatarRec(name, { e: emoji, n: name }); }
 
 const AVATAR_CHOICES = [
   "🦊","🐻","🐧","🦉","🐯","🦌","🐙","🐬","🦜","🐢","🐰","🐨",
@@ -1251,6 +1353,49 @@ function openProfile() {
   });
   grid.dataset.pick = current;
   $("profileDialog").showModal();
+}
+
+/* ---------- travellers section ---------- */
+let travPhotoPending;  // undefined = unchanged, null = cleared, string = new dataURL
+function travPreviewRender() {
+  const emoji = $("travEmojiGrid").dataset.pick || avatar(userName) || "🙂";
+  const photo = travPhotoPending !== undefined ? travPhotoPending : travellerPhoto(userName);
+  $("travPreview").innerHTML = photo ? `<img src="${photo}" alt="">` : emoji;
+  $("travPhotoClear").hidden = !photo;
+}
+function openTravellers() {
+  travPhotoPending = undefined;
+  const meKey = (userName || "").trim().toLowerCase();
+  const list = $("travellersList"); list.innerHTML = "";
+  const names = travellerNames();
+  if (!names.length) list.innerHTML = `<p class="hint">No travellers yet — add yourself below so the crew knows who's who.</p>`;
+  names.forEach(key => {
+    const rec = chosenAvatars()[key];
+    const photo = (rec && typeof rec === "object") ? rec.p : null;
+    const card = document.createElement("div"); card.className = "trav-card";
+    card.innerHTML =
+      `<div class="trav-ava">${photo ? `<img src="${photo}" alt="">` : avatar(travellerLabel(key))}</div>` +
+      `<div class="trav-name">${esc(travellerLabel(key))}</div>` +
+      (key === meKey ? `<div class="trav-you-tag">YOU</div>` : "");
+    list.appendChild(card);
+  });
+  $("travName").value = userName || "";
+  const grid = $("travEmojiGrid"); grid.hidden = true; grid.innerHTML = "";
+  const v = avaVal(userName);
+  grid.dataset.pick = (typeof v === "string" ? v : (v && v.e)) || avatar(userName) || "🦊";
+  AVATAR_CHOICES.forEach(e => {
+    const btn = document.createElement("button"); btn.type = "button"; btn.textContent = e;
+    btn.className = "ava-choice" + (e === grid.dataset.pick ? " on" : "");
+    btn.onclick = () => {
+      grid.querySelectorAll(".ava-choice").forEach(x => x.classList.remove("on"));
+      btn.classList.add("on"); grid.dataset.pick = e;
+      travPhotoPending = null;  // picking an emoji clears the photo
+      travPreviewRender();
+    };
+    grid.appendChild(btn);
+  });
+  travPreviewRender();
+  $("travellersDialog").showModal();
 }
 
 function tripDates() {
@@ -1662,6 +1807,56 @@ function moveStop(day, i, delta) {
     render();
   } else persistLocal();
 }
+/* Move a stop to an arbitrary index within its day (used by drag-to-reorder). */
+function reorderStop(day, fromIdx, toIdx) {
+  if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+  const arr = day.stops;
+  const [moved] = arr.splice(fromIdx, 1);
+  arr.splice(toIdx, 0, moved);
+  if (LIVE) {
+    Promise.all(arr.map((s, i) => sb.from("trip_stops").update({ position: i }).eq("id", s.id))).then(scheduleRefresh);
+    render();
+  } else persistLocal();
+}
+/* Pointer-based drag reorder from a card's grip handle; reflows the list live
+ * and works with both mouse and touch. */
+function makeDraggable(handle, s, day, container) {
+  handle.style.touchAction = "none";
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    let dragging = false;
+    const stops = () => [...container.querySelectorAll(".stop")];
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    const onMove = (ev) => {
+      if (!dragging) {
+        if (Math.abs(ev.clientY - startY) < 5) return;
+        dragging = true; s.classList.add("dragging");
+      }
+      const sibs = stops().filter(x => x !== s);
+      let target = null;
+      for (const sib of sibs) {
+        const r = sib.getBoundingClientRect();
+        if (ev.clientY < r.top + r.height / 2) { target = sib; break; }
+      }
+      if (target) container.insertBefore(s, target);
+      else if (sibs.length) sibs[sibs.length - 1].after(s);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      if (!dragging) return;
+      s.classList.remove("dragging");
+      const toIdx = stops().indexOf(s);
+      const fromIdx = day.stops.findIndex(st => st.id === s.dataset.stopId);
+      if (toIdx >= 0 && fromIdx >= 0) reorderStop(day, fromIdx, toIdx);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  });
+}
 
 /* ---------- go live: promote local trip to Supabase ---------- */
 async function goLive() {
@@ -2060,7 +2255,6 @@ function render() {
       s.dataset.stopId = stop.id;
       const links = strLinks(stop).filter(u => !isImageUrl(u)).map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(linkLabel(u))}</a>`).join("");
-      const want = fireCount(stop);
       const photo = stopPhoto(stop);
       const wiki = wikiInfo(stop);
       const detailLine = (stop.notes && stop.notes.trim()) || (wiki && wiki.desc) || "";
@@ -2076,7 +2270,6 @@ function render() {
           ${detailLine ? `<div class="detail"></div>` : ""}
           ${resBadgeHtml(stop)}
           <div class="acts">
-            <button data-op="want" class="want ${myVote(stop) ? "on" : ""}" title="${esc(voteNames(stop)) || "Add to the want-to-do list"}"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M12 3.4l2.5 5.5 6 .5-4.5 3.9 1.3 5.9-5.3-3.1-5.3 3.1 1.3-5.9L3.5 9.4l6-.5z"/></svg>${want ? `<span class="wc">${want}</span>` : ""}</button>
             <button data-op="visited" class="${visited ? "gold" : ""}" title="Mark as visited">${visited ? "✓ been!" : "✓"}</button>
             <a class="navgo" href="https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}" target="_blank" rel="noopener" title="Get directions in Google Maps"><svg class="picon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.4"/></svg> Google Maps</a>
           </div>
@@ -2087,10 +2280,9 @@ function render() {
           </div>
         </div>
         <div class="ops">
+          <button class="drag-handle" title="Drag to reorder" aria-label="Drag to reorder"><svg viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></svg></button>
           ${hasMore ? `<button title="Details" data-op="more">⌄</button>` : ""}
           <button title="Edit" data-op="edit">✎</button>
-          <button title="Move up" data-op="up">↑</button>
-          <button title="Move down" data-op="down">↓</button>
         </div>`;
       s.querySelector(".name-text").textContent = stop.name;
       const dEl = s.querySelector(".detail"); if (dEl) dEl.textContent = detailLine;
@@ -2108,7 +2300,6 @@ function render() {
         m.hidden = !m.hidden;
         moreBtn.classList.toggle("open", !m.hidden);
       };
-      s.querySelector('[data-op=want]').onclick = () => setVote(stop, 1);
       s.querySelector('[data-op=visited]').onclick = (ev) => {
         const wasVisited = isVisited(stop);
         toggleVisited(stop);
@@ -2120,8 +2311,7 @@ function render() {
         }
       };
       s.querySelector('[data-op=edit]').onclick = () => openEdit(day, stop);
-      s.querySelector('[data-op=up]').onclick = () => moveStop(day, si, -1);
-      s.querySelector('[data-op=down]').onclick = () => moveStop(day, si, 1);
+      makeDraggable(s.querySelector(".drag-handle"), s, day, el);
       el.appendChild(s);
     });
 
@@ -2629,7 +2819,39 @@ $("btnAddCancel").onclick = () => $("addDialog").close();
 $("addForm").onsubmit = (e) => { e.preventDefault(); handleAdd(); };
 $("addInput").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } };
 $("btnAddDay").onclick = addDayM;
-$("whoName").onclick = openProfile;
+$("whoName").onclick = openTravellers;
+$("btnTravellers").onclick = () => { document.body.classList.remove("more-open"); openTravellers(); };
+$("travClose").onclick = () => $("travellersDialog").close();
+$("travEmojiBtn").onclick = () => { const g = $("travEmojiGrid"); g.hidden = !g.hidden; };
+$("travPhotoBtn").onclick = () => $("travPhotoInput").click();
+$("travPhotoClear").onclick = () => { travPhotoPending = null; travPreviewRender(); };
+$("travPhotoInput").onchange = (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    const S = 220, side = Math.min(img.width, img.height);
+    const c = document.createElement("canvas"); c.width = S; c.height = S;
+    c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
+    travPhotoPending = c.toDataURL("image/jpeg", 0.82);
+    travPreviewRender();
+    URL.revokeObjectURL(img.src);
+  };
+  img.onerror = () => toast("Couldn't read that image");
+  img.src = URL.createObjectURL(f);
+  e.target.value = "";
+};
+$("travSave").onclick = () => {
+  const newName = $("travName").value.trim();
+  if (newName) { userName = newName; localStorage.setItem(NAME_KEY, userName); }
+  if (userName) {
+    const patch = { n: userName };
+    if ($("travEmojiGrid").dataset.pick) patch.e = $("travEmojiGrid").dataset.pick;
+    if (travPhotoPending !== undefined) patch.p = travPhotoPending;
+    saveAvatarRec(userName, patch);
+  }
+  $("travellersDialog").close();
+  render();
+};
 $("btnStayCancel").onclick = () => $("stayDialog").close();
 $("stayForm").onsubmit = () => {
   if (editingStay) setDayLodging(editingStay, packLodging($("stayName").value, $("stayUrl").value));
@@ -2658,14 +2880,39 @@ $("profileForm").onsubmit = () => {
 };
 
 /* ---------- welcome cover ---------- */
-function renderCover() {
-  $("coverTitle").textContent = trip.title || "Your trip";
+/* ---------- welcome cover: register → pick a trip → plan ---------- */
+const TRIPS_KEY = "tpp.trips";
+const knownTrips = () => { try { return JSON.parse(localStorage.getItem(TRIPS_KEY) || "[]"); } catch (e) { return []; } };
+function rememberTrip(entry) {
+  const list = knownTrips().filter(t => t.id !== entry.id);
+  list.unshift(entry);
+  localStorage.setItem(TRIPS_KEY, JSON.stringify(list.slice(0, 20)));
+}
+function currentTripEntry() {
   const dated = trip.days.map(d => d.date).filter(Boolean).sort();
   const dc = trip.days.length;
   let meta = dc + " day" + (dc !== 1 ? "s" : "");
-  if (dated.length) meta = fmtDate(dated[0]) + " – " + fmtDate(dated[dated.length - 1]) + "  ·  " + meta;
-  $("coverDates").textContent = meta;
-  $("coverCrew").innerHTML = "";
+  if (dated.length) meta = fmtDate(dated[0]) + " – " + fmtDate(dated[dated.length - 1]);
+  return { id: LIVE ? LIVE_TRIP_ID : "local", title: trip.title || "Untitled trip", meta,
+    url: LIVE ? location.href : location.origin + location.pathname };
+}
+const TC_PIN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.4"/></svg>`;
+function renderTripList() {
+  const cur = currentTripEntry();
+  rememberTrip({ id: cur.id, title: cur.title, url: cur.url });
+  const others = knownTrips().filter(t => t.id !== cur.id);
+  const box = $("tripList"); box.innerHTML = "";
+  [{ ...cur, current: true }, ...others].forEach(t => {
+    const card = document.createElement("button");
+    card.className = "trip-card"; card.type = "button";
+    card.innerHTML = `<span class="tc-pin">${TC_PIN}</span><span class="tc-body">` +
+      `<span class="tc-title">${esc(t.title || "Trip")}</span>` +
+      `<span class="tc-meta">${esc(t.meta || "")}${t.current ? (t.meta ? " · " : "") + "you're here" : ""}</span>` +
+      `</span><span class="tc-go">→</span>`;
+    card.onclick = () => { if (t.current || t.url === location.href) enterApp(); else location.href = t.url; };
+    box.appendChild(card);
+  });
+  $("coverHi").textContent = userName ? "Hi " + userName + " — pick a trip" : "Pick a trip";
 }
 function enterApp() {
   const c = $("cover");
@@ -2674,20 +2921,78 @@ function enterApp() {
   sessionStorage.setItem("tpp.entered", "1");
   if (map) setTimeout(() => map.invalidateSize(), 200);
 }
+function coverStep(which) {
+  $("coverRegister").hidden = which !== "register";
+  $("coverTrips").hidden = which !== "trips";
+  if (which === "trips") renderTripList();
+}
 function showCoverIfNew() {
   if (sessionStorage.getItem("tpp.entered")) return;
-  renderCover();
+  if (userName) coverStep("trips"); else { setupRegister(); coverStep("register"); }
   $("cover").classList.add("show");
 }
-$("btnEnter").onclick = enterApp;
+/* --- registration step (name + emoji/photo) --- */
+let regPhotoPending = null;
+function regPreviewRender() {
+  $("regPreview").innerHTML = regPhotoPending ? `<img src="${regPhotoPending}" alt="">` : ($("regEmojiGrid").dataset.pick || "🙂");
+}
+function setupRegister() {
+  regPhotoPending = null;
+  $("regName").value = userName || "";
+  const grid = $("regEmojiGrid"); grid.hidden = true; grid.innerHTML = ""; grid.dataset.pick = "🦊";
+  AVATAR_CHOICES.forEach(e => {
+    const btn = document.createElement("button"); btn.type = "button"; btn.textContent = e;
+    btn.className = "ava-choice" + (e === grid.dataset.pick ? " on" : "");
+    btn.onclick = () => { grid.querySelectorAll(".ava-choice").forEach(x => x.classList.remove("on")); btn.classList.add("on"); grid.dataset.pick = e; regPhotoPending = null; regPreviewRender(); };
+    grid.appendChild(btn);
+  });
+  regPreviewRender();
+}
+$("regEmojiBtn").onclick = () => { const g = $("regEmojiGrid"); g.hidden = !g.hidden; };
+$("regPhotoBtn").onclick = () => $("regPhotoInput").click();
+$("regPhotoInput").onchange = (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    const S = 220, side = Math.min(img.width, img.height);
+    const c = document.createElement("canvas"); c.width = S; c.height = S;
+    c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
+    regPhotoPending = c.toDataURL("image/jpeg", 0.82); regPreviewRender();
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(f); e.target.value = "";
+};
+$("btnRegister").onclick = () => {
+  const n = $("regName").value.trim();
+  if (!n) { toast("Add your name to continue"); return; }
+  userName = n; localStorage.setItem(NAME_KEY, userName);
+  const patch = { n: userName };
+  if ($("regEmojiGrid").dataset.pick) patch.e = $("regEmojiGrid").dataset.pick;
+  if (regPhotoPending) patch.p = regPhotoPending;
+  saveAvatarRec(userName, patch);
+  coverStep("trips");
+};
+/* --- start a new trip --- */
+async function createNewTrip() {
+  const title = (prompt("Name your new trip", "New trip") || "").trim();
+  if (!title) return;
+  if (sb) {
+    try {
+      const t = await sb.from("trip_trips").insert({ title }).select().single();
+      if (t.error) throw t.error;
+      await sb.from("trip_days").insert({ trip_id: t.data.id, title: "Day 1", position: 0 });
+      const url = location.origin + location.pathname + "?trip=" + t.data.id;
+      rememberTrip({ id: t.data.id, title, url });
+      location.href = url;
+      return;
+    } catch (e) { toast("Couldn't create the trip — check your connection and try again"); return; }
+  }
+  toast("Starting a new trip needs a connection right now");
+}
+$("btnNewTrip").onclick = createNewTrip;
 
 /* ---------- boot ---------- */
 async function boot() {
-  if (!userName) {
-    const n = prompt("Welcome! What's your name? (shows on pins you add)", "");
-    userName = (n || "").trim();
-    if (userName) localStorage.setItem(NAME_KEY, userName);
-  }
   $("addCtaPin").innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 22s7-6.6 7-12A7 7 0 0 0 5 10c0 5.4 7 12 7 12Z"/><circle cx="12" cy="10" r="2.6" fill="var(--pop)"/></svg>`;
   $("footerMark").innerHTML = pinMark();
   $("mapMark").innerHTML = pinMark();
