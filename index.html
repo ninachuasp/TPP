@@ -1442,10 +1442,14 @@ function profilePhoto(name) {
   return null;
 }
 const travellerLabel = key => { const v = chosenAvatars()[key]; return (v && typeof v === "object" && v.n) || key.charAt(0).toUpperCase() + key.slice(1); };
-/* Everyone who has a saved record, plus you. */
+/* Everyone who has a saved profile, everyone who added a stop, plus you. */
 function travellerNames() {
   const s = new Set(Object.keys(chosenAvatars()));
   if (userName) s.add(userName.trim().toLowerCase());
+  if (trip && trip.days) trip.days.forEach(d => (d.stops || []).forEach(st => {
+    const a = (st.addedBy || "").trim();
+    if (a && a.toLowerCase() !== "starter") s.add(a.toLowerCase());
+  }));
   return [...s];
 }
 /* Merge a patch ({e}, {p}, {n}) into a traveller's record and persist. */
