@@ -558,11 +558,21 @@
   .trav-list .hint { margin: 2px 0; }
   .trav-card { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 66px; }
   .trav-ava {
-    width: 52px; height: 52px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+    width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; position: relative;
     display: flex; align-items: center; justify-content: center; font-size: 1.55rem;
     background: var(--accent-soft); box-shadow: 0 0 0 1px var(--line);
   }
-  .trav-ava img { width: 100%; height: 100%; object-fit: cover; }
+  .trav-ava img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .trav-crown { position: absolute; top: -8px; right: -4px; font-size: .95rem; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+  .trav-remove { position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; border-radius: 50%;
+    border: none; background: var(--pop); color: #fff; font-size: .7rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .trav-admin-claim { width: 100%; margin: 12px 0 0; padding: 9px; border: 1px dashed var(--accent);
+    border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-weight: 700; cursor: pointer; }
+  .trav-admin-add { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+  .trav-admin-add label { font-size: .78rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .trav-admin-tag, .trav-admin-add .trav-admin-tag { font-size: .56rem; font-weight: 800; color: var(--pop); letter-spacing: .1em;
+    border: 1px solid var(--pop); border-radius: 5px; padding: 1px 4px; }
   .trav-name { font-size: .74rem; text-align: center; max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .trav-you-tag { font-size: .58rem; font-weight: 800; color: var(--pop); letter-spacing: .1em; }
   .trav-you { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
@@ -943,6 +953,7 @@
 <dialog id="travellersDialog">
   <h3>👥 Travellers</h3>
   <div id="travellersList" class="trav-list"></div>
+  <div id="travAdmin"></div>
   <div class="trav-you">
     <label>You</label>
     <div class="trav-editrow">
@@ -1394,8 +1405,11 @@ function driveBadge(day, di) {
 /* ---------- fun pack: avatars, trip-ometer, confetti, roulette ---------- */
 const AVATARS = ["🦊", "🐻", "🐧", "🦉", "🐯", "🦌", "🐙", "🐬", "🦜", "🐢"];
 /* Chosen avatars: synced on trip_trips.avatars when that column exists,
- * else a per-device map. Keyed by lowercased name. */
+ * else a per-device map. Keyed by lowercased name. Reserved keys start with
+ * "__" (e.g. __admin holds the trip creator's name) and aren't travellers. */
 let AVA_SYNC = false;
+const ADMIN_KEY = "__admin";
+const isReservedAva = k => k.indexOf("__") === 0;
 const avatarsKey = () => "tpp.avatars." + (LIVE ? LIVE_TRIP_ID : "local");
 let localAvatars = {};
 try { localAvatars = JSON.parse(localStorage.getItem(avatarsKey()) || "{}"); } catch (e) {}
@@ -1444,13 +1458,43 @@ function profilePhoto(name) {
 const travellerLabel = key => { const v = chosenAvatars()[key]; return (v && typeof v === "object" && v.n) || key.charAt(0).toUpperCase() + key.slice(1); };
 /* Everyone who has a saved profile, everyone who added a stop, plus you. */
 function travellerNames() {
-  const s = new Set(Object.keys(chosenAvatars()));
+  const s = new Set(Object.keys(chosenAvatars()).filter(k => !isReservedAva(k)));
   if (userName) s.add(userName.trim().toLowerCase());
   if (trip && trip.days) trip.days.forEach(d => (d.stops || []).forEach(st => {
     const a = (st.addedBy || "").trim();
     if (a && a.toLowerCase() !== "starter") s.add(a.toLowerCase());
   }));
   return [...s];
+}
+/* Admin = trip creator. Stored as a name string under the reserved __admin key
+ * in the shared avatars map, so no extra DB column is needed. */
+const tripAdmin = () => { const v = chosenAvatars()[ADMIN_KEY]; return typeof v === "string" ? v : null; };
+const isAdmin = () => !!userName && tripAdmin() === userName.trim().toLowerCase();
+function setTripAdmin(name) {
+  const key = String(name || "").trim().toLowerCase();
+  if (!key) return;
+  if (LIVE && AVA_SYNC) {
+    const map = { ...(trip.avatars || {}) };
+    map[ADMIN_KEY] = key; trip.avatars = map; render();
+    dbTry(sb.from("trip_trips").update({ avatars: map }).eq("id", LIVE_TRIP_ID));
+  } else {
+    localAvatars[ADMIN_KEY] = key;
+    localStorage.setItem(avatarsKey(), JSON.stringify(localAvatars));
+    render();
+  }
+}
+/* Admin-only: drop a traveller from the shared crew. */
+function removeTraveller(key) {
+  key = String(key || "").trim().toLowerCase();
+  if (!key || key === tripAdmin()) return;
+  if (LIVE && AVA_SYNC) {
+    const map = { ...(trip.avatars || {}) };
+    delete map[key]; trip.avatars = map;
+    dbTry(sb.from("trip_trips").update({ avatars: map }).eq("id", LIVE_TRIP_ID));
+  }
+  delete localAvatars[key];
+  localStorage.setItem(avatarsKey(), JSON.stringify(localAvatars));
+  render(); openTravellers();
 }
 /* Merge a patch ({e}, {p}, {n}) into a traveller's record and persist. */
 function saveAvatarRec(name, patch) {
@@ -1510,17 +1554,46 @@ function openTravellers() {
   const meKey = (userName || "").trim().toLowerCase();
   const list = $("travellersList"); list.innerHTML = "";
   const names = travellerNames();
+  const adminKey = tripAdmin();
+  const meAdmin = isAdmin();
   if (!names.length) list.innerHTML = `<p class="hint">No travellers yet — add yourself below so the crew knows who's who.</p>`;
   names.forEach(key => {
     const rec = chosenAvatars()[key];
     const photo = (rec && typeof rec === "object") ? rec.p : null;
     const card = document.createElement("div"); card.className = "trav-card";
     card.innerHTML =
-      `<div class="trav-ava">${photo ? `<img src="${photo}" alt="">` : avatar(travellerLabel(key))}</div>` +
+      `<div class="trav-ava">${photo ? `<img src="${esc(photo)}" alt="">` : avatar(travellerLabel(key))}` +
+        (key === adminKey ? `<span class="trav-crown" title="Trip admin">👑</span>` : "") +
+        (meAdmin && key !== adminKey && key !== meKey ? `<button class="trav-remove" title="Remove from trip" aria-label="Remove">✕</button>` : "") +
+      `</div>` +
       `<div class="trav-name">${esc(travellerLabel(key))}</div>` +
-      (key === meKey ? `<div class="trav-you-tag">YOU</div>` : "");
+      (key === adminKey ? `<div class="trav-you-tag">ADMIN</div>` : (key === meKey ? `<div class="trav-you-tag">YOU</div>` : ""));
+    const rm = card.querySelector(".trav-remove");
+    if (rm) rm.onclick = () => { if (confirm(`Remove ${travellerLabel(key)} from this trip?`)) removeTraveller(key); };
     list.appendChild(card);
   });
+  // Admin panel: claim admin if none set, else (for the admin) add a traveller.
+  const ab = $("travAdmin"); ab.innerHTML = "";
+  if (!adminKey && userName) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "trav-admin-claim";
+    b.textContent = "👑 Make me the trip admin";
+    b.onclick = () => { setTripAdmin(userName); openTravellers(); };
+    ab.appendChild(b);
+  } else if (meAdmin) {
+    ab.innerHTML =
+      `<div class="trav-admin-add"><label>Add a traveller <span class="trav-admin-tag">ADMIN</span></label>` +
+      `<div class="trav-editrow"><input id="travAddName" placeholder="their name" autocomplete="off">` +
+      `<button type="button" class="primary" id="travAddBtn">Add</button></div></div>`;
+    $("travAddBtn").onclick = () => {
+      const nm = $("travAddName").value.trim();
+      if (!nm) { toast("Type a name to add"); return; }
+      saveAvatarRec(nm, { n: nm, e: avatar(nm) });
+      $("travAddName").value = "";
+      openTravellers();
+      toast(`Added ${nm} to the crew`);
+    };
+  }
   $("travName").value = userName || "";
   const grid = $("travEmojiGrid"); grid.hidden = true; grid.innerHTML = "";
   const v = avaVal(userName);
@@ -2070,7 +2143,10 @@ async function goLive() {
   if (!sb) { toast("Supabase client failed to load"); return; }
   if (!confirm("Publish this trip so everyone with the link can edit it live?")) return;
   try {
-    const t = await sb.from("trip_trips").insert({ title: trip.title }).select().single();
+    const row = { title: trip.title };
+    if (userName) row.avatars = { [ADMIN_KEY]: userName.trim().toLowerCase() };
+    let t = await sb.from("trip_trips").insert(row).select().single();
+    if (t.error && row.avatars) t = await sb.from("trip_trips").insert({ title: trip.title }).select().single();
     if (t.error) throw t.error;
     for (let di = 0; di < trip.days.length; di++) {
       const day = trip.days[di];
@@ -3406,7 +3482,11 @@ async function createNewTrip() {
   if (!title) return;
   if (sb) {
     try {
-      const t = await sb.from("trip_trips").insert({ title }).select().single();
+      const row = { title };
+      if (userName) row.avatars = { [ADMIN_KEY]: userName.trim().toLowerCase() };
+      let t = await sb.from("trip_trips").insert(row).select().single();
+      // If the avatars column doesn't exist yet, fall back to a bare insert.
+      if (t.error && row.avatars) t = await sb.from("trip_trips").insert({ title }).select().single();
       if (t.error) throw t.error;
       await sb.from("trip_days").insert({ trip_id: t.data.id, title: "Day 1", position: 0 });
       const url = location.origin + location.pathname + "?trip=" + t.data.id;
