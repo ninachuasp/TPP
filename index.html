@@ -1015,7 +1015,7 @@ const SB_URL = "https://wcncgckvrvlvbmqergvd.supabase.co";
 const SB_KEY = "sb_publishable_1grF-44ak6XLoHYzuNOTaQ_5zQxlXK7";
 
 const DAY_COLORS = ["#e0531d","#1f6fc4","#6b47c9","#12897e","#b9820f","#a83b8f","#2b45cf","#55801f","#c02f5e","#566079"];
-const STORE_KEY = "tpp.trip.v4";
+const STORE_KEY = "tpp.trip.v5";
 const NAME_KEY = "tpp.username";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -1030,60 +1030,50 @@ function seedTrip() {
   const mk = (name, lat, lng, links, notes) =>
     ({ id: uid(), name, lat, lng, links: links || [], notes: notes || "", addedBy: "starter" });
   return {
-    title: "Sapporo Road Trip · 12–24 Oct",
+    title: "Hokkaido Road Trip · 14–20 Oct",
     days: [
-      { id: uid(), date: "2026-10-12", title: "Sapporo", lodging: "Sapporo — hotel TBD", stops: [
-        mk("Nijo Market", 43.0570, 141.3612, [], "Land + morning kaisendon run"),
-        mk("Odori Park & TV Tower", 43.0606, 141.3472, [], "Walk it off downtown"),
-        mk("Sapporo Beer Garden", 43.0713, 141.3697, [{ type: "reservation", kind: "dinner", status: "pending", note: "18:30 — book ahead" }], "Genghis Khan BBQ dinner"),
-        mk("Susukino", 43.0553, 141.3536, [], "Nightcap / ramen alley"),
+      { id: uid(), date: "2026-10-14", title: "Arrive → Lake Toya", lodging: "Lake Toya — onsen ryokan", stops: [
+        mk("Sapporo Station", 43.0686, 141.3509, [], "Meet here 12:00pm — pick up the rental car"),
+        mk("Nakayama Pass (Nakayama-toge)", 42.8836, 141.1258, [], "Scenic mountain rest stop en route — famous age-imo potato snack"),
+        mk("Lake Toya (Toyako Onsen)", 42.5717, 140.8636, [{ type: "reservation", kind: "hotel", status: "pending", note: "Ryokan — 1 night (2nd night if affordable)" }], "~2h from Sapporo. Check into the ryokan; lakeside onsen + nightly fireworks (to end Oct)"),
       ]},
-      { id: uid(), date: "2026-10-13", title: "Sapporo & Jozankei", lodging: "Sapporo — hotel TBD", stops: [
-        mk("Hokkaido Shrine", 43.0545, 141.3079, [], "Maruyama Park autumn stroll"),
-        mk("Shiroi Koibito Park", 43.0879, 141.2717),
-        mk("Jozankei Onsen", 42.9679, 141.1678, [], "Peak koyo season — day-use onsen, ~50 min drive"),
-        mk("Mt. Moiwa Ropeway", 43.0333, 141.3222, [], "Night view on the way back"),
+      { id: uid(), date: "2026-10-15", title: "Lake Toya", lodging: "Lake Toya — onsen ryokan (2nd night)", stops: [
+        mk("Mt. Usu Ropeway", 42.5439, 140.8377, [], "Ropeway up for caldera + Showa-Shinzan views"),
+        mk("Showa-Shinzan", 42.5406, 140.8524, [], "The lava dome that rose out of a wheat field in the 1940s"),
+        mk("Lake Toya Silo Observatory", 42.6349, 140.8360, [], "Best panorama over the caldera lake"),
+        mk("Toyako Onsen lakefront", 42.5717, 140.8636, [], "Free foot baths; boat out to Nakajima Island. Stay a 2nd night if the ryokan's affordable"),
       ]},
-      { id: uid(), date: "2026-10-14", title: "Pickup → Noboribetsu", lodging: "Noboribetsu onsen ryokan", stops: [
-        mk("New Chitose Airport", 42.7752, 141.6923, [], "Airport pickup + rental car"),
-        mk("Lake Shikotsu", 42.7600, 141.3400, [], "Lakeside foliage stop, 30 min from airport"),
-        mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [{ type: "reservation", kind: "hotel", status: "pending", note: "onsen ryokan TBD" }], "Check into onsen ryokan, evening Hell Valley walk"),
+      { id: uid(), date: "2026-10-16", title: "Lake Toya → Hakodate", lodging: "Hakodate — hotel", stops: [
+        mk("Onuma Quasi-National Park", 41.9836, 140.6686, [], "Scenic break ~2h from Toya — lake + Mt. Komagatake"),
+        mk("Kanemori Red Brick Warehouses", 41.7666, 140.7154, [{ type: "reservation", kind: "hotel", status: "pending", note: "Hakodate hotel — 2 nights (16–18)" }], "Bayside shops + dinner; check in nearby"),
+        mk("Mt. Hakodate Ropeway", 41.7595, 140.7040, [], "Go up after dark — the famous night view over the isthmus"),
       ]},
-      { id: uid(), date: "2026-10-15", title: "Noboribetsu → Lake Toya", lodging: "Lake Toya onsen hotel", stops: [
-        mk("Usuzan Ropeway", 42.5430, 140.8280, [], "Volcano + caldera views"),
-        mk("Lake Toya", 42.6048, 140.8464, [], "Lakefront onsen stay — nightly fireworks run to end of Oct"),
+      { id: uid(), date: "2026-10-17", title: "Hakodate", lodging: "Hakodate — hotel", stops: [
+        mk("Hakodate Morning Market", 41.7735, 140.7262, [], "Squid + kaisendon breakfast"),
+        mk("Motomachi & Hachiman-zaka Slope", 41.7622, 140.7118, [], "Historic churches and the postcard harbour view"),
+        mk("Fort Goryokaku & Tower", 41.7963, 140.7570, [], "Star-shaped fort; tower for the aerial view"),
+        mk("Yunokawa Onsen", 41.7817, 140.7906, [], "Seaside foot bath to wind down"),
       ]},
-      { id: uid(), date: "2026-10-16", title: "Toya → Shakotan → Otaru", lodging: "Otaru — hotel TBD", stops: [
-        mk("Niseko", 42.8048, 140.6874, [], "Coffee stop, Mt Yotei viewpoints"),
-        mk("Cape Kamui", 43.3360, 140.3430, [], "Shakotan-blue cliff walk + uni-don lunch nearby"),
-        mk("Otaru Canal", 43.1985, 140.9959, [], "Evening gaslight stroll — stay Otaru"),
+      { id: uid(), date: "2026-10-18", title: "Hakodate → Sapporo", lodging: "Sapporo — hotel", stops: [
+        mk("Michi-no-Eki Mori (rest stop)", 42.1058, 140.5906, [], "Leave Hakodate mid-morning — coastal break on the ~4–5h drive back"),
+        mk("Odori Park & TV Tower", 43.0608, 141.3469, [{ type: "reservation", kind: "hotel", status: "pending", note: "Sapporo hotel — 2 nights (18–20)" }], "Arrive evening; stroll downtown"),
+        mk("Susukino", 43.0554, 141.3536, [], "Ramen alley / dinner"),
       ]},
-      { id: uid(), date: "2026-10-17", title: "Otaru → Yoichi → Furano", lodging: "Furano — hotel TBD", stops: [
-        mk("Sankaku Market", 43.1990, 140.9917, [], "Seafood breakfast"),
-        mk("Nikka Whisky Yoichi Distillery", 43.1912, 140.7852, [], "Book tasting ahead"),
-        mk("Ningle Terrace", 43.3187, 142.3819, [], "~3h drive; twilight craft huts — stay Furano"),
+      { id: uid(), date: "2026-10-19", title: "Sapporo", lodging: "Sapporo — hotel", stops: [
+        mk("Nijo Market", 43.0592, 141.3546, [], "Seafood breakfast — uni & crab"),
+        mk("Sapporo Beer Museum", 43.0717, 141.3690, [{ type: "reservation", kind: "dinner", status: "pending", note: "Jingisukan — book ahead" }], "Tour + Genghis Khan BBQ lunch/dinner nearby"),
+        mk("Tanukikoji Shopping Street", 43.0574, 141.3517, [], "Covered arcade — souvenir run"),
+        mk("Mt. Moiwa Ropeway", 43.0300, 141.3268, [], "Night view to close the trip"),
       ]},
-      { id: uid(), date: "2026-10-18", title: "Biei loop → Asahikawa", lodging: "Asahikawa — hotel TBD", stops: [
-        mk("Blue Pond (Aoiike)", 43.4839, 142.6270, [], "Go early to beat tour buses"),
-        mk("Shirahige Falls", 43.4740, 142.6360),
-        mk("Patchwork Road, Biei", 43.6000, 142.4300, [], "Rolling farm hills drive"),
-        mk("Shikisai-no-oka", 43.5387, 142.4785, [], "Autumn flower fields"),
-        mk("Asahikawa Ramen Village", 43.7910, 142.4086, [], "Shoyu ramen dinner — stay Asahikawa"),
-      ]},
-      { id: uid(), date: "2026-10-19", title: "Sounkyo → Sapporo", lodging: "Sapporo — hotel TBD", stops: [
-        mk("Sounkyo Gorge", 43.7280, 142.9480, [], "Ginga & Ryusei falls, ropeway koyo — or swap for Asahiyama Zoo"),
-        mk("Asahiyama Zoo", 43.7679, 142.4808, [], "Alternative to Sounkyo; then ~2h drive to Sapporo, farewell jingisukan dinner"),
-      ]},
-      { id: uid(), date: "2026-10-20", title: "Farewell", lodging: "Sapporo — hotel TBD", stops: [
-        mk("Tanukikoji Shopping Street", 43.0574, 141.3517, [], "Souvenir run"),
-        mk("New Chitose Airport", 42.7752, 141.6923, [], "Drop rental car + fly out"),
+      { id: uid(), date: "2026-10-20", title: "Farewell → Chitose", lodging: "", stops: [
+        mk("New Chitose Airport", 42.7752, 141.6923, [], "Derek & Sean fly out — drop off the rental car"),
       ]},
       { id: uid(), title: "Extra ideas", stops: [
-        mk("Moerenuma Park", 43.1226, 141.4276, [], "Noguchi-designed park, rent bikes"),
-        mk("Sapporo Beer Museum", 43.0717, 141.3690),
-        mk("Okurayama Ski Jump", 43.0480, 141.2880, [], "City panorama from the jump tower"),
-        mk("Historical Village of Hokkaido", 43.0480, 141.5010, [], "Open-air museum in autumn woods"),
-        mk("Otaru Tenguyama Ropeway", 43.1770, 140.9740, [], "If Otaru deserves a second visit"),
+        mk("Noboribetsu Jigokudani (Hell Valley)", 42.4939, 141.1476, [], "Detour-worthy onsen town if you swap a Toya night"),
+        mk("Cape Tachimachi", 41.7503, 140.7040, [], "Hakodate clifftop sunset spot"),
+        mk("Trappistine Convent", 41.7439, 140.7739, [], "Quiet Hakodate garden + soft serve"),
+        mk("Otaru Canal", 43.1985, 140.9959, [], "Add on the way back to Sapporo if there's time"),
+        mk("Hokkaido Shrine", 43.0545, 141.3079, [], "Maruyama Park autumn stroll in Sapporo"),
       ]},
     ],
   };
