@@ -127,6 +127,28 @@
   }
   #map { flex: 1; min-width: 0; }
 
+  /* ---- view tabs: the itinerary is the main view; map & journey live behind tabs ---- */
+  #viewTabs {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  #viewTabs .seg { display: inline-flex; gap: 4px; background: var(--accent-soft); border-radius: 12px; padding: 4px; }
+  #viewTabs .seg button {
+    border: none; background: transparent; color: var(--muted); cursor: pointer;
+    font-weight: 700; font-size: .9rem; padding: 7px 16px; border-radius: 9px;
+  }
+  #viewTabs .seg button.on { background: var(--panel); color: var(--accent); box-shadow: 0 1px 5px -1px rgba(0,0,0,.18); }
+  #viewTabs .split-toggle {
+    margin-left: auto; border: 1px solid var(--line); background: transparent; color: var(--muted);
+    font-weight: 700; font-size: .82rem; padding: 7px 13px; border-radius: 10px; cursor: pointer;
+  }
+  #viewTabs .split-toggle.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+  /* view visibility — applies at every width, so the map is a tab on desktop too */
+  body.mtab-plan #map { display: none; }
+  body.mtab-map #sidebar { display: none; }
+  body.mtab-plan #sidebar { width: 100%; max-width: 860px; margin: 0 auto; border-right: none; }
+
   .add-cta {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%; margin-bottom: 14px; padding: 12px 16px;
@@ -684,9 +706,10 @@
   @media (max-width: 760px) { #toast { bottom: calc(70px + env(safe-area-inset-bottom)); } }
 
   @media print {
-    header .spacer ~ *, .add-box, #map, .stop .ops, .stop .acts, .day-head .mini, #liveBadge, #mobileNav { display: none !important; }
+    header .spacer ~ *, .add-box, #map, .stop .ops, .stop .acts, .day-head .mini, #liveBadge, #mobileNav, #viewTabs { display: none !important; }
     main { display: block; }
-    #sidebar { width: 100%; max-width: none; border: none; }
+    body.mtab-map #sidebar { display: block !important; }
+    #sidebar { width: 100%; max-width: none; border: none; margin: 0; }
     body { height: auto; }
   }
   /* more-menu behaves inline on desktop, as a dropdown on mobile */
@@ -715,8 +738,8 @@
     main { flex-direction: column; padding-bottom: calc(54px + env(safe-area-inset-bottom)); }
     #sidebar { width: 100%; max-width: none; flex: 1; border-right: none; }
     #map { flex: 1; min-height: 0; }
-    body.mtab-plan #map { display: none; }
-    body.mtab-map #sidebar { display: none; }
+    #viewTabs { display: none; }
+    body.mtab-plan #sidebar { max-width: none; }
     #quest { padding-bottom: 70px; }
     .stop { padding: 11px 12px; }
     .stop .acts button, .stop .acts a.navgo { padding: 6px 14px; font-size: .8rem; }
@@ -836,6 +859,15 @@
   </div>
   <input type="file" id="fileImport" accept=".json,.csv" hidden>
 </header>
+
+<nav id="viewTabs" aria-label="View switcher">
+  <div class="seg">
+    <button data-tab="plan">🗒 Itinerary</button>
+    <button data-tab="map">🗺️ Map</button>
+    <button data-tab="journey">🧭 Journey</button>
+  </div>
+  <button class="split-toggle" data-tab="split" title="Show the itinerary and map side by side">⊞ Split view</button>
+</nav>
 
 <main>
   <div id="sidebar">
@@ -1032,34 +1064,34 @@ function seedTrip() {
   return {
     title: "Hokkaido Road Trip · 14–20 Oct",
     days: [
-      { id: uid(), date: "2026-10-14", title: "Arrive → Lake Toya", lodging: "Lake Toya — onsen ryokan", stops: [
+      { id: uid(), date: "2026-10-14", title: "Arrive → Lake Toya", lodging: "The Lake Suite Ko no Sumika · Lake Toya", stops: [
         mk("Sapporo Station", 43.0686, 141.3509, [], "Meet here 12:00pm — pick up the rental car"),
         mk("Nakayama Pass (Nakayama-toge)", 42.8836, 141.1258, [], "Scenic mountain rest stop en route — famous age-imo potato snack"),
-        mk("Lake Toya (Toyako Onsen)", 42.5717, 140.8636, [{ type: "reservation", kind: "hotel", status: "pending", note: "Ryokan — 1 night (2nd night if affordable)" }], "~2h from Sapporo. Check into the ryokan; lakeside onsen + nightly fireworks (to end Oct)"),
+        mk("Lake Toya (Toyako Onsen)", 42.5717, 140.8636, [{ type: "reservation", kind: "hotel", status: "booked", note: "The Lake Suite Ko no Sumika — 2 nights (14–16 Oct)" }], "~2h from Sapporo. Check into Ko no Sumika — lakeview onsen suite; kaiseki dinner + nightly fireworks (to end Oct)"),
       ]},
-      { id: uid(), date: "2026-10-15", title: "Lake Toya", lodging: "Lake Toya — onsen ryokan (2nd night)", stops: [
+      { id: uid(), date: "2026-10-15", title: "Lake Toya", lodging: "The Lake Suite Ko no Sumika · Lake Toya (2nd night)", stops: [
         mk("Mt. Usu Ropeway", 42.5439, 140.8377, [], "Ropeway up for caldera + Showa-Shinzan views"),
         mk("Showa-Shinzan", 42.5406, 140.8524, [], "The lava dome that rose out of a wheat field in the 1940s"),
         mk("Lake Toya Silo Observatory", 42.6349, 140.8360, [], "Best panorama over the caldera lake"),
-        mk("Toyako Onsen lakefront", 42.5717, 140.8636, [], "Free foot baths; boat out to Nakajima Island. Stay a 2nd night if the ryokan's affordable"),
+        mk("Toyako Onsen lakefront", 42.5717, 140.8636, [], "Free foot baths; boat out to Nakajima Island. Optional Noboribetsu day-trip (~50 min) for Jigokudani 'Hell Valley'"),
       ]},
-      { id: uid(), date: "2026-10-16", title: "Lake Toya → Hakodate", lodging: "Hakodate — hotel", stops: [
+      { id: uid(), date: "2026-10-16", title: "Lake Toya → Hakodate", lodging: "Hakodate — hotel to book", stops: [
         mk("Onuma Quasi-National Park", 41.9836, 140.6686, [], "Scenic break ~2h from Toya — lake + Mt. Komagatake"),
-        mk("Kanemori Red Brick Warehouses", 41.7666, 140.7154, [{ type: "reservation", kind: "hotel", status: "pending", note: "Hakodate hotel — 2 nights (16–18)" }], "Bayside shops + dinner; check in nearby"),
+        mk("Kanemori Red Brick Warehouses", 41.7666, 140.7154, [{ type: "reservation", kind: "hotel", status: "pending", note: "Hakodate hotel — 2 nights (16–18 Oct) · still to book" }], "Bayside shops + dinner; check in nearby — pick a hotel near the Red Brick Warehouses"),
         mk("Mt. Hakodate Ropeway", 41.7595, 140.7040, [], "Go up after dark — the famous night view over the isthmus"),
       ]},
-      { id: uid(), date: "2026-10-17", title: "Hakodate", lodging: "Hakodate — hotel", stops: [
+      { id: uid(), date: "2026-10-17", title: "Hakodate", lodging: "Hakodate — hotel to book (2nd night)", stops: [
         mk("Hakodate Morning Market", 41.7735, 140.7262, [], "Squid + kaisendon breakfast"),
         mk("Motomachi & Hachiman-zaka Slope", 41.7622, 140.7118, [], "Historic churches and the postcard harbour view"),
         mk("Fort Goryokaku & Tower", 41.7963, 140.7570, [], "Star-shaped fort; tower for the aerial view"),
         mk("Yunokawa Onsen", 41.7817, 140.7906, [], "Seaside foot bath to wind down"),
       ]},
-      { id: uid(), date: "2026-10-18", title: "Hakodate → Sapporo", lodging: "Sapporo — hotel", stops: [
+      { id: uid(), date: "2026-10-18", title: "Hakodate → Sapporo", lodging: "Courtyard by Marriott Sapporo", stops: [
         mk("Michi-no-Eki Mori (rest stop)", 42.1058, 140.5906, [], "Leave Hakodate mid-morning — coastal break on the ~4–5h drive back"),
-        mk("Odori Park & TV Tower", 43.0608, 141.3469, [{ type: "reservation", kind: "hotel", status: "pending", note: "Sapporo hotel — 2 nights (18–20)" }], "Arrive evening; stroll downtown"),
+        mk("Odori Park & TV Tower", 43.0608, 141.3469, [{ type: "reservation", kind: "hotel", status: "booked", note: "Courtyard by Marriott Sapporo — 2 nights (18–20 Oct)" }], "Arrive evening; stroll downtown"),
         mk("Susukino", 43.0554, 141.3536, [], "Ramen alley / dinner"),
       ]},
-      { id: uid(), date: "2026-10-19", title: "Sapporo", lodging: "Sapporo — hotel", stops: [
+      { id: uid(), date: "2026-10-19", title: "Sapporo", lodging: "Courtyard by Marriott Sapporo (2nd night)", stops: [
         mk("Nijo Market", 43.0592, 141.3546, [], "Seafood breakfast — uni & crab"),
         mk("Sapporo Beer Museum", 43.0717, 141.3690, [{ type: "reservation", kind: "dinner", status: "pending", note: "Jingisukan — book ahead" }], "Tour + Genghis Khan BBQ lunch/dinner nearby"),
         mk("Tanukikoji Shopping Street", 43.0574, 141.3517, [], "Covered arcade — souvenir run"),
@@ -3332,17 +3364,23 @@ $("btnBackups").onclick = openBackups;
 $("btnBackupClose").onclick = () => $("backupDialog").close();
 
 function setMtab(tab) {
-  document.body.classList.remove("mtab-plan", "mtab-map", "mtab-journey");
+  document.body.classList.remove("mtab-plan", "mtab-map", "mtab-journey", "mtab-split");
   document.body.classList.add("mtab-" + tab);
-  document.querySelectorAll("#mobileNav button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  document.querySelectorAll("#mobileNav button, #viewTabs .seg button")
+    .forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  const split = document.querySelector("#viewTabs .split-toggle");
+  if (split) split.classList.toggle("on", tab === "split");
   const wantQuest = tab === "journey";
   if (wantQuest !== questOn) $("btnQuest").click();
-  if (tab === "map" && map) setTimeout(() => { map.invalidateSize(); }, 80);
+  if ((tab === "map" || tab === "split") && map) setTimeout(() => { map.invalidateSize(); }, 80);
 }
-document.querySelectorAll("#mobileNav button").forEach(b => { b.onclick = () => setMtab(b.dataset.tab); });
+document.querySelectorAll("#mobileNav button, #viewTabs [data-tab]")
+  .forEach(b => { b.onclick = () => setMtab(b.dataset.tab); });
 const mobileMq = matchMedia("(max-width: 760px)");
-function onMqChange() { if (mobileMq.matches) setMtab("plan"); }
+function onMqChange() { if (mobileMq.matches && document.body.classList.contains("mtab-split")) setMtab("plan"); }
 mobileMq.addEventListener("change", onMqChange);
+// The itinerary is the main view on every screen size; map & journey are tabs.
+setMtab("plan");
 
 $("tripTitle").onchange = (e) => setTripTitle(e.target.value);
 $("btnOpenAdd").onclick = () => openAdd();
